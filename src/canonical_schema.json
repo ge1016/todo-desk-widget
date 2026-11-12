@@ -19,7 +19,8 @@
     "计划日期": { "date": "1970-01-01T00:00:00Z" },
     "完成日期": { "date": "1970-01-01T00:00:00Z" },
     "备注": { "text": "" },
-    "详情": { "text": "" }
+    "详情": { "text": "" },
+    "来源": { "text": "" }
   },
   "field_mapping": {
     "任务": { "value_type": "text", "form_input": "#taskInput", "display_selector": ".card-title", "render_signal": "card-title" },
@@ -30,7 +31,8 @@
     "计划日期": { "value_type": "date", "form_input": "#planInput", "display_selector": ".badge", "render_signal": "badge" },
     "完成日期": { "value_type": "date", "form_input": null, "display_selector": null, "render_signal": "badge" },
     "备注": { "value_type": "text", "form_input": null, "display_selector": ".note", "render_signal": "note" },
-    "详情": { "value_type": "text", "form_input": "#descEditor", "display_selector": ".rt-view", "render_signal": "rt-view" }
+    "详情": { "value_type": "text", "form_input": "#descEditor", "display_selector": ".rt-view", "render_signal": "rt-view" },
+    "来源": { "value_type": "text", "form_input": null, "display_selector": ".badge", "render_signal": "badge" }
   },
   "options_map": {
     "状态": {

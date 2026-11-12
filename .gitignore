@@ -6,6 +6,7 @@ shot*.png
 .workbuddy/
 electron-v*/
 widget-state.json
+diag.flag
 _test.html
 .DS_Store
 Thumbs.db

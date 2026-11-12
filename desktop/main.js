@@ -22,6 +22,16 @@ const PAGE_URL = 'https://www.workbuddy.cn/space/d/YOUR_PAGE_NODE_ID';
 const APP_DIR = path.resolve(__dirname);
 const ICON = path.join(__dirname, 'icon.png');
 
+/* 排障开关：工作区存在 diag.flag 时，把渲染层日志与 iframe DOM 快照写到 ../diag.log。
+   日常运行无此文件，零开销。 */
+const DIAG_FILE = path.join(__dirname, '..', 'diag.log');
+const DIAG_ON = fs.existsSync(path.join(__dirname, '..', 'diag.flag'));
+function diagLog(s) {
+  if (!DIAG_ON) { return; }
+  try { fs.appendFileSync(DIAG_FILE, '[' + new Date().toISOString() + '] ' + s + '\n'); } catch (e) { /* 忽略 */ }
+}
+if (DIAG_ON) { try { fs.writeFileSync(DIAG_FILE, ''); } catch (e) { /* 忽略 */ } }
+
 let win = null;
 let stateFile = null;
 let saveTimer = null;
@@ -204,7 +214,7 @@ function createWindow() {
 
   win.webContents.on('console-message', function (e, level, message) {
     const msg = (e && e.message) ? e.message : message;
-    if (msg) console.log('[renderer] ' + msg);
+    if (msg) { console.log('[renderer] ' + msg); diagLog('[renderer:' + level + '] ' + msg); }
   });
 
   win.webContents.on('did-finish-load', function () {
@@ -214,9 +224,33 @@ function createWindow() {
       'htmlLen:document.documentElement.outerHTML.length});})();'
     ).then(function (info) {
       console.log('[diag] ' + info);
+      diagLog('[top] ' + info);
     }).catch(function (err) {
       console.log('[diag] failed: ' + (err && err.message));
     });
+    if (DIAG_ON) {
+      setTimeout(function () {
+        win.webContents.executeJavaScript(
+          '(function(){var out={url:location.href,title:document.title,frames:[]};' +
+          'var fs=document.querySelectorAll("iframe");' +
+          'for(var i=0;i<fs.length;i++){var f=fs[i],o={h:f.getBoundingClientRect().height,src:(f.src||"").slice(0,120),srcdocLen:(f.srcdoc||"").length};' +
+          'try{var d=f.contentDocument,w=f.contentWindow;' +
+          'o.bodyLen=d&&d.body?d.body.innerText.length:-1;' +
+          'o.head=d&&d.body?d.body.innerText.slice(0,120):"";' +
+          'o.cards=d?d.querySelectorAll(".card").length:-1;' +
+          'o.mods=d?d.querySelectorAll("[data-mod]").length:-1;' +
+          'o.tabs=d?d.querySelectorAll("#coreTabs [data-focus]").length:-1;' +
+          'o.fab=d?!!d.getElementById("fabAdd"):false;' +
+          'o.sdk=w?!!w.__SMART_PAGE__:false;' +
+          'o.db=w?!!(w.__SMART_PAGE__&&w.__SMART_PAGE__.database):false;' +
+          'o.htmlLen=d?d.documentElement.outerHTML.length:-1;' +
+          'o.scriptCount=d?d.querySelectorAll("script").length:-1;' +
+          'o.sandbox=f.getAttribute("sandbox");' +
+          '}catch(e){o.err=String(e&&e.message);}out.frames.push(o);}' +
+          'return JSON.stringify(out);})();'
+        ).then(function (s) { diagLog('[frames] ' + s); }).catch(function (e) { diagLog('[frames-err] ' + String(e && e.message)); });
+      }, 7000);
+    }
     injectShell(win);
     checkAuthState(win.webContents.getURL());
   });
