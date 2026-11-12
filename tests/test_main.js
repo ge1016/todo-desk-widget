@@ -10,9 +10,13 @@ const probe = `(async function () {
   function cards() { return document.querySelectorAll('.card').length; }
   function inMod(key) { var b = $('[data-list="' + key + '"]'); return b ? b.querySelectorAll('.card').length : -1; }
   function calls(k) { return window.__calls.filter(function (c) { return c[0] === k; }); }
-  function lastDueBadge() {
-    var b = document.querySelectorAll('.card[data-id="r1"] .badge.date-tog');
-    return b.length ? b[b.length - 1] : null;
+  function badge(id, kind) {
+    return document.querySelector('.card[data-id="' + id + '"] [data-date-kind="' + kind + '"]');
+  }
+  function due(id) { return badge(id, 'due'); }
+  function perPrefs() {
+    try { return JSON.parse(window.localStorage.getItem('todo_due_mode_per_v1') || '{}'); }
+    catch (e) { return {}; }
   }
   try {
     /* 1. 首页结构：核心标签 + 模块 + 悬浮按钮 */
@@ -47,16 +51,38 @@ const probe = `(async function () {
     ck('done_body_unfolded', !$('[data-list="done"]').hidden);
     click('[data-fold="done"]');
 
-    /* 5. 截止日期 / 倒计时切换 */
-    var b0 = lastDueBadge();
-    ck('date_mode_shows_mmdd', !!b0 && b0.textContent.indexOf('截止 ') === 0 && b0.textContent.indexOf('-') > 0);
+    /* 5. 日期 / 倒计时：单任务独立切换，同步按钮统一全部 */
+    ck('initial_r1_due_shows_mmdd', !!due('r1') && due('r1').textContent.indexOf('截止 ') === 0 && due('r1').textContent.indexOf('-') > 0);
+    var t2 = due('r2').textContent, t3 = due('r3').textContent;
+    ck('initial_r3_overdue_date', t3.indexOf('已逾期') === 0);
+
+    due('r1').click();
+    ck('single_click_r1_to_count', due('r1').textContent.indexOf('天后') >= 0);
+    ck('single_click_r2_unchanged', due('r2').textContent === t2);
+    ck('single_click_r3_unchanged', due('r3').textContent === t3);
+    ck('same_card_plan_badge_follows', badge('r1', 'plan').textContent.indexOf('天后') >= 0);
+    ck('single_click_marks_solo', due('r1').classList.contains('solo'));
+    ck('solo_pref_persisted', perPrefs()['r1'] === 'count');
+    ck('sync_btn_reports_solo_count', $('#dueModeBtn').title.indexOf('1 条单独设置') >= 0);
+
+    due('r1').click();
+    ck('second_click_back_to_date', due('r1').textContent.indexOf('截止 ') === 0);
+    ck('second_click_clears_solo', !due('r1').classList.contains('solo'));
+    ck('solo_pref_removed', !perPrefs()['r1']);
+
     click('#dueModeBtn');
-    var b1 = lastDueBadge();
-    ck('count_mode_shows_days', !!b1 && b1.textContent.indexOf('天后') >= 0);
-    ck('mode_button_label_flipped', $('#dueModeBtn').textContent.indexOf('切到日期') >= 0);
-    b1.click();
-    var b2 = lastDueBadge();
-    ck('badge_click_back_to_date', !!b2 && b2.textContent.indexOf('截止 ') === 0 && b2.textContent.indexOf('-') > 0);
+    ck('sync_all_r1_count', due('r1').textContent.indexOf('天后') >= 0);
+    ck('sync_all_r2_today', due('r2').textContent.indexOf('今天') >= 0);
+    ck('sync_all_r3_overdue_days', due('r3').textContent.indexOf('逾期 2 天') >= 0);
+    ck('sync_button_label_flipped', $('#dueModeBtn').textContent.indexOf('全部切到日期') >= 0);
+    ck('sync_clears_solo_marks', document.querySelectorAll('.badge.date-tog.solo').length === 0);
+
+    due('r1').click();
+    ck('after_sync_single_click_date', due('r1').textContent.indexOf('截止 ') === 0);
+    ck('after_sync_others_stay_count', due('r2').textContent.indexOf('今天') >= 0);
+    click('#dueModeBtn');
+    ck('sync_back_to_date', due('r1').textContent.indexOf('截止 ') === 0 && due('r2').textContent.indexOf('截止 ') === 0);
+    ck('final_no_solo_marks', document.querySelectorAll('.badge.date-tog.solo').length === 0);
 
     /* 6. 悬浮按钮 + 普通添加 */
     click('#fabAdd');

@@ -56,6 +56,7 @@ window.__calls = [];
 try {
   window.localStorage.removeItem('todo_view_v3');
   window.localStorage.removeItem('todo_due_mode_v1');
+  window.localStorage.removeItem('todo_due_mode_per_v1');
   window.localStorage.removeItem('todo_draft_v1');
 } catch (e) {}
 window.__SMART_PAGE__ = {
