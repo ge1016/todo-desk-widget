@@ -94,6 +94,12 @@
   .b-hold { background: #c2901f; }
   .mod-desc { font-size: 11.5px; color: var(--ink3); flex: 1 1 auto; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .count { font-size: 11.5px; color: var(--ink3); font-variant-numeric: tabular-nums; }
+  .lead-btn {
+    font-family: inherit; font-size: 11px; padding: 2px 9px; border-radius: 999px; cursor: pointer;
+    background: rgba(47, 107, 255, .08); border: 1px solid rgba(47, 107, 255, .25);
+    color: var(--brand); white-space: nowrap;
+  }
+  .lead-btn:hover { background: rgba(47, 107, 255, .16); }
   .chev { font-size: 11px; color: var(--ink3); width: 14px; text-align: center; }
   .mod-body { display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 9px; align-items: start; }
   .loading { text-align: center; padding: 46px 0; font-size: 13px; color: var(--ink3); }
@@ -328,7 +334,7 @@
 
   <section class="modules" id="board">
     <div class="mod" data-mod="focus">
-      <div class="mod-head" data-fold="focus"><span class="mod-bar b-focus"></span><h2>今日必做</h2><span class="mod-desc">逾期 · 今天到期 · 排到今天 · 还没排期</span><span class="count" data-count="focus" data-sp-bindable="database" data-sp-database-id="YOUR_DATABASE_ID">0</span><span class="chev">▾</span></div>
+      <div class="mod-head" data-fold="focus"><span class="mod-bar b-focus"></span><h2>今日必做</h2><span class="mod-desc">逾期 · 今天到期 · 截止前 3 天 · 还没排期</span><button type="button" class="lead-btn" id="focusLeadBtn" title="点击切换：截止日前 1 / 3 / 7 天进入今日必做">提前 3 天</button><span class="count" data-count="focus" data-sp-bindable="database" data-sp-database-id="YOUR_DATABASE_ID">0</span><span class="chev">▾</span></div>
       <div class="mod-body" data-list="focus"></div>
     </div>
     <div class="mod" data-mod="doing">
@@ -455,6 +461,9 @@
   var PER_MODE_KEY = 'todo_due_mode_per_v1';  /* 单任务单独设置：{ 记录ID: 'date' | 'count' } */
   var defaultDueMode = 'date';
   var PER_MODE = {};
+  var LEAD_KEY = 'todo_focus_lead_v1';   /* 今日必做的临期窗口：从截止日往前推几天 */
+  var LEAD_OPTIONS = [1, 3, 7];
+  var focusLead = 3;
   var draftTimer = null;
   var EXPANDED = {};
   var FOLDED = { focus: false, doing: false, todo: false, done: true, hold: true };
@@ -467,7 +476,7 @@
 
   var taskInput, prioInput, catInput, planInput, dueInput, addBtn, addForm, searchInput, hideDone, bannerEl, boardEl, loadingEl, chipsEl;
   var descToggle, rtWrap, descEditor, addBar, descMask, editEditor, editBar, descTaskLabel;
-  var viewTabs, focusCountEl, coreTabs, dueModeBtn, toastEl, toastText, toastBtn, toastClose;
+  var viewTabs, focusCountEl, coreTabs, dueModeBtn, focusLeadBtn, toastEl, toastText, toastBtn, toastClose;
   var planMask, planTaskLabel, planQuick, planPick;
   var fabAdd, addMask, sourceTag, sourceName, sourceClear;
 
@@ -554,15 +563,15 @@
     return dateLabel(due, today, '截止', st !== '已完成', mode);
   }
 
+  /* 今日必做：以截止日为锚点往前推 —— 逾期 / 今天到期 / 截止前 focusLead 天。
+     只要有截止日期，就完全不看计划日期；没有截止日期才退回「计划日已到 / 完全没排期」。 */
   function isFocus(r, st, today) {
     if (st === '搁置') { return false; }
     if (st === '已完成') { return isoDate(r[F.done]) === today; }
-    var plan = isoDate(r[F.plan]);
     var due = isoDate(r[F.due]);
-    if (due && due <= today) { return true; }
-    if (plan && plan <= today) { return true; }
-    if (!plan && !due) { return true; }
-    return false;
+    if (due) { return daysDiff(today, due) <= focusLead; }
+    var plan = isoDate(r[F.plan]);
+    return !plan || plan <= today;
   }
   function isOverdue(r, st, today) {
     if (st === '已完成' || st === '搁置') { return false; }
@@ -576,6 +585,10 @@
       else if (raw === 'today') { view.todayOnly = true; }
       var mode = window.localStorage.getItem(MODE_KEY);
       if (mode === 'count' || mode === 'date') { defaultDueMode = mode; }
+      var lead = Number(window.localStorage.getItem(LEAD_KEY));
+      for (var li = 0; li < LEAD_OPTIONS.length; li++) {
+        if (LEAD_OPTIONS[li] === lead) { focusLead = lead; }
+      }
       var per = window.localStorage.getItem(PER_MODE_KEY);
       if (per) {
         var obj = JSON.parse(per);
@@ -643,6 +656,24 @@
       var on = (f !== 'rate' && f === view.focus);
       if (on) { tabs[i].classList.add('on'); } else { tabs[i].classList.remove('on'); }
     }
+  }
+  function syncFocusLead() {
+    if (focusLeadBtn) {
+      focusLeadBtn.textContent = '提前 ' + focusLead + ' 天';
+      focusLeadBtn.title = '点击切换：截止日前 1 / 3 / 7 天进入今日必做';
+    }
+    var desc = document.querySelector('[data-mod="focus"] .mod-desc');
+    if (desc) { desc.textContent = '逾期 · 今天到期 · 截止前 ' + focusLead + ' 天 · 还没排期'; }
+  }
+  function cycleFocusLead() {
+    var i = 0, j;
+    for (j = 0; j < LEAD_OPTIONS.length; j++) {
+      if (LEAD_OPTIONS[j] === focusLead) { i = j; }
+    }
+    focusLead = LEAD_OPTIONS[(i + 1) % LEAD_OPTIONS.length];
+    try { window.localStorage.setItem(LEAD_KEY, String(focusLead)); } catch (e) { /* 存储不可用时静默降级 */ }
+    syncFocusLead();
+    render();
   }
   /* 同步按钮：一次性把所有任务统一到另一个模式，清空所有单独设置；新任务也跟随 */
   function toggleDueMode() {
@@ -896,6 +927,7 @@
     coreTabs = document.getElementById('coreTabs');
     focusCountEl = document.getElementById('focusCount');
     dueModeBtn = document.getElementById('dueModeBtn');
+    focusLeadBtn = document.getElementById('focusLeadBtn');
     toastEl = document.getElementById('toast');
     toastText = document.getElementById('toastText');
     toastBtn = document.getElementById('toastBtn');
@@ -1033,10 +1065,14 @@
     if (st === '已完成' || st === '搁置') { return 5; }
     var plan = isoDate(r[F.plan]);
     var due = isoDate(r[F.due]);
-    if (due && due < today) { return 0; }
-    if (due === today) { return 1; }
-    if (plan && plan <= today) { return 2; }
-    if (!plan && !due) { return 3; }
+    if (due) {
+      var left = daysDiff(today, due);
+      if (left < 0) { return 0; }
+      if (left === 0) { return 1; }
+      if (left <= focusLead) { return 2; }
+      return 4;
+    }
+    if (!plan || plan <= today) { return 3; }
     return 4;
   }
   function nextDate(r) {
@@ -1103,6 +1139,7 @@
     if (focusCountEl) { focusCountEl.textContent = String(focusCount); }
     syncViewTabs();
     syncCoreTabs();
+    syncFocusLead();
     renderChips(cats);
 
     var visible = { focus: false, doing: false, todo: false, done: false, hold: false };
@@ -1573,6 +1610,9 @@
     });
 
     boardEl.addEventListener('click', function (e) {
+      /* 临期窗口按钮在模块头内部，必须先于折叠判断处理 */
+      var leadBtn = e.target && e.target.closest ? e.target.closest('#focusLeadBtn') : null;
+      if (leadBtn) { cycleFocusLead(); return; }
       var fold = e.target && e.target.closest ? e.target.closest('[data-fold]') : null;
       if (fold) {
         var fk = fold.getAttribute('data-fold');

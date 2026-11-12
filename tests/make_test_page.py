@@ -48,6 +48,14 @@ rows = [
     {'_id': 'r6', '任务': '测试任务F（搁置）', '状态': S_HOLD, '优先级': P_MID,
      '分类': '', '计划日期': '', '截止日期': '', '完成日期': '',
      '备注': '', '详情': '', '来源': ''},
+    # r7：计划日期已过、但截止日还很远 -> 不应因「起始日期」进今日必做
+    {'_id': 'r7', '任务': '测试任务G（计划已过·截止还远）', '状态': S_TODO, '优先级': P_MID,
+     '分类': 'AI', '计划日期': d(-2), '截止日期': d(20), '完成日期': '',
+     '备注': '', '详情': '', '来源': ''},
+    # r8：没有计划日期、2 天后截止 -> 按截止日倒推进今日必做
+    {'_id': 'r8', '任务': '测试任务H（2天后截止）', '状态': S_TODO, '优先级': P_MID,
+     '分类': '', '计划日期': '', '截止日期': d(2), '完成日期': '',
+     '备注': '', '详情': '', '来源': ''},
 ]
 
 mock = """
@@ -57,6 +65,7 @@ try {
   window.localStorage.removeItem('todo_view_v3');
   window.localStorage.removeItem('todo_due_mode_v1');
   window.localStorage.removeItem('todo_due_mode_per_v1');
+  window.localStorage.removeItem('todo_focus_lead_v1');
   window.localStorage.removeItem('todo_draft_v1');
 } catch (e) {}
 window.__SMART_PAGE__ = {

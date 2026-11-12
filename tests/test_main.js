@@ -24,9 +24,10 @@ const probe = `(async function () {
     ck('modules_5', document.querySelectorAll('[data-mod]').length === 5);
     ck('fab_exists', !!$('#fabAdd'));
     ck('add_mask_initially_hidden', $('#addMask').hidden);
-    ck('initial_cards_6', cards() === 6);
-    ck('focus_module_3', inMod('focus') === 3);
+    ck('initial_cards_8', cards() === 8);
+    ck('focus_module_4', inMod('focus') === 4);
     ck('doing_module_1', inMod('doing') === 1);
+    ck('todo_module_1', inMod('todo') === 1);
     ck('done_module_1', inMod('done') === 1);
     ck('hold_module_1', inMod('hold') === 1);
 
@@ -50,6 +51,25 @@ const probe = `(async function () {
     click('[data-fold="done"]');
     ck('done_body_unfolded', !$('[data-list="done"]').hidden);
     click('[data-fold="done"]');
+
+    /* 4.5 今日必做：按截止日往前推，临期窗口可切 1/3/7 天 */
+    ck('plan_past_due_far_excluded', !$('[data-list="focus"] .card[data-id="r7"]'));
+    ck('plan_past_due_far_in_todo_pool', !!$('[data-list="todo"] .card[data-id="r7"]'));
+    ck('due_in_2_days_in_focus', !!$('[data-list="focus"] .card[data-id="r8"]'));
+    ck('no_dates_still_in_focus', !!$('[data-list="focus"] .card[data-id="r5"]'));
+    ck('lead_button_default_3', $('#focusLeadBtn').textContent.indexOf('3 天') >= 0);
+    click('#focusLeadBtn');
+    ck('lead_click_does_not_fold', !$('[data-list="focus"]').hidden);
+    ck('lead_cycle_to_7', $('#focusLeadBtn').textContent.indexOf('7 天') >= 0);
+    ck('lead_7_keeps_near_task', !!$('[data-list="focus"] .card[data-id="r8"]'));
+    click('#focusLeadBtn');
+    ck('lead_cycle_to_1', $('#focusLeadBtn').textContent.indexOf('1 天') >= 0);
+    ck('lead_1_excludes_2day_task', !$('[data-list="focus"] .card[data-id="r8"]'));
+    ck('lead_1_focus_count_3', inMod('focus') === 3);
+    ck('lead_pref_persisted', window.localStorage.getItem('todo_focus_lead_v1') === '1');
+    click('#focusLeadBtn');
+    ck('lead_cycle_back_to_3', $('#focusLeadBtn').textContent.indexOf('3 天') >= 0);
+    ck('lead_3_restores_focus', inMod('focus') === 4);
 
     /* 5. 日期 / 倒计时：单任务独立切换，同步按钮统一全部 */
     ck('initial_r1_due_shows_mmdd', !!due('r1') && due('r1').textContent.indexOf('截止 ') === 0 && due('r1').textContent.indexOf('-') > 0);
