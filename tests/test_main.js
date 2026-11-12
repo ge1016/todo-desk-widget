@@ -55,6 +55,7 @@ const probe = `(async function () {
     ck('initial_r1_due_shows_mmdd', !!due('r1') && due('r1').textContent.indexOf('截止 ') === 0 && due('r1').textContent.indexOf('-') > 0);
     var t2 = due('r2').textContent, t3 = due('r3').textContent;
     ck('initial_r3_overdue_date', t3.indexOf('已逾期') === 0);
+    ck('completed_card_due_not_toggleable', !$('.card[data-id="r4"] .badge.date-tog'));
 
     due('r1').click();
     ck('single_click_r1_to_count', due('r1').textContent.indexOf('天后') >= 0);

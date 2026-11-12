@@ -678,6 +678,8 @@
     if (!card) { return; }
     var id = card.getAttribute('data-id') || '';
     if (!id) { return; }
+    var rec = findRow(id);
+    if (rec && (statusText(rec[F.status]) || '待办') === '已完成') { return; }
     var next = dueModeFor(id) === 'date' ? 'count' : 'date';
     if (next === defaultDueMode) { delete PER_MODE[id]; }
     else { PER_MODE[id] = next; }
@@ -1183,6 +1185,8 @@
     var cardId = r._id || '';
     var cardMode = dueModeFor(cardId);
     var cardSolo = !!PER_MODE[cardId];
+    var canToggle = st !== '已完成';  /* 已完成任务的日期固定显示绝对日期，不做倒计时 */
+    var togCls = canToggle ? ' date-tog' + (cardSolo ? ' solo' : '') : '';
     card.setAttribute('data-id', cardId);
 
     var title = bind(el('div', 'card-title'));
@@ -1199,21 +1203,25 @@
     var plan = isoDate(r[F.plan]);
     if (plan) {
       var planToday = plan === today;
-      var planBadge = bind(el('span', 'badge plan' + (planToday ? ' today' : '') + ' date-tog' + (cardSolo ? ' solo' : ''),
+      var planBadge = bind(el('span', 'badge plan' + (planToday ? ' today' : '') + togCls,
         dateBadgeText('plan', r, st, today, cardMode)));
-      planBadge.setAttribute('data-date-toggle', '1');
-      planBadge.setAttribute('data-date-kind', 'plan');
-      planBadge.title = dateBadgeTitle(cardMode, cardSolo);
+      if (canToggle) {
+        planBadge.setAttribute('data-date-toggle', '1');
+        planBadge.setAttribute('data-date-kind', 'plan');
+        planBadge.title = dateBadgeTitle(cardMode, cardSolo);
+      }
       meta.appendChild(planBadge);
     }
     var due = isoDate(r[F.due]);
     if (due) {
       var over = st !== '已完成' && due < today;
-      var dueBadge = bind(el('span', 'badge' + (over ? ' over' : '') + ' date-tog' + (cardSolo ? ' solo' : ''),
+      var dueBadge = bind(el('span', 'badge' + (over ? ' over' : '') + togCls,
         dateBadgeText('due', r, st, today, cardMode)));
-      dueBadge.setAttribute('data-date-toggle', '1');
-      dueBadge.setAttribute('data-date-kind', 'due');
-      dueBadge.title = dateBadgeTitle(cardMode, cardSolo);
+      if (canToggle) {
+        dueBadge.setAttribute('data-date-toggle', '1');
+        dueBadge.setAttribute('data-date-kind', 'due');
+        dueBadge.title = dateBadgeTitle(cardMode, cardSolo);
+      }
       meta.appendChild(dueBadge);
     }
     if (st === '已完成') {
