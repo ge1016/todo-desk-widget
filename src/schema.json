@@ -1,0 +1,12 @@
+{
+  "title": "待办与完成记录",
+  "properties": [
+    { "name": "任务", "config": { "text": "" } },
+    { "name": "状态", "config": { "select": { "options": [ { "text": "待办" }, { "text": "进行中" }, { "text": "已完成" }, { "text": "搁置" } ] } } },
+    { "name": "优先级", "config": { "select": { "options": [ { "text": "高" }, { "text": "中" }, { "text": "低" } ] } } },
+    { "name": "分类", "config": { "text": "" } },
+    { "name": "截止日期", "config": { "date": "1970-01-01T00:00:00Z" } },
+    { "name": "完成日期", "config": { "date": "1970-01-01T00:00:00Z" } },
+    { "name": "备注", "config": { "text": "" } }
+  ]
+}

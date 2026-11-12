@@ -1,0 +1,50 @@
+{
+  "title": "待办与完成记录",
+  "page_type": "mixed",
+  "properties": {
+    "任务": { "text": "" },
+    "状态": { "select": { "options": [
+      { "text": "待办", "id": "4KrY2kHJiXqC" },
+      { "text": "进行中", "id": "NcPmHCjxCZob" },
+      { "text": "已完成", "id": "ZSmFM2nH1NLM" },
+      { "text": "搁置", "id": "v8E2iCHvZcUB" }
+    ] } },
+    "优先级": { "select": { "options": [
+      { "text": "高", "id": "pqfHpJFmJFsY" },
+      { "text": "中", "id": "IgVmOyyJyoen" },
+      { "text": "低", "id": "XjUVdbwMASmm" }
+    ] } },
+    "分类": { "text": "" },
+    "截止日期": { "date": "1970-01-01T00:00:00Z" },
+    "计划日期": { "date": "1970-01-01T00:00:00Z" },
+    "完成日期": { "date": "1970-01-01T00:00:00Z" },
+    "备注": { "text": "" },
+    "详情": { "text": "" }
+  },
+  "field_mapping": {
+    "任务": { "value_type": "text", "form_input": "#taskInput", "display_selector": ".card-title", "render_signal": "card-title" },
+    "状态": { "value_type": "select", "form_input": null, "display_selector": null, "render_signal": "col data-col", "options_value_key": "value" },
+    "优先级": { "value_type": "select", "form_input": "#prioInput", "display_selector": ".badge", "render_signal": "badge", "options_value_key": "value" },
+    "分类": { "value_type": "text", "form_input": "#catInput", "display_selector": ".badge", "render_signal": "badge" },
+    "截止日期": { "value_type": "date", "form_input": "#dueInput", "display_selector": ".badge", "render_signal": "badge" },
+    "计划日期": { "value_type": "date", "form_input": "#planInput", "display_selector": ".badge", "render_signal": "badge" },
+    "完成日期": { "value_type": "date", "form_input": null, "display_selector": null, "render_signal": "badge" },
+    "备注": { "value_type": "text", "form_input": null, "display_selector": ".note", "render_signal": "note" },
+    "详情": { "value_type": "text", "form_input": "#descEditor", "display_selector": ".rt-view", "render_signal": "rt-view" }
+  },
+  "options_map": {
+    "状态": {
+      "待办": { "text": "待办", "id": "4KrY2kHJiXqC" },
+      "进行中": { "text": "进行中", "id": "NcPmHCjxCZob" },
+      "已完成": { "text": "已完成", "id": "ZSmFM2nH1NLM" },
+      "搁置": { "text": "搁置", "id": "v8E2iCHvZcUB" }
+    },
+    "优先级": {
+      "高": { "text": "高", "id": "pqfHpJFmJFsY" },
+      "中": { "text": "中", "id": "IgVmOyyJyoen" },
+      "低": { "text": "低", "id": "XjUVdbwMASmm" }
+    }
+  },
+  "source": "agent_analysis",
+  "sdk_calls_found": false
+}

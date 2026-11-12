@@ -1,0 +1,1383 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>我的待办台</title>
+<style>
+  * { box-sizing: border-box; }
+  :root {
+    --ink: #16202e;
+    --ink2: #5d6b80;
+    --ink3: #8b97a8;
+    --line: rgba(22, 45, 90, .09);
+    --brand: #2f6bff;
+    --green: #12a37f;
+    --red: #c62a30;
+    --card: rgba(255, 255, 255, .74);
+  }
+  html, body { margin: 0; padding: 0; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
+    color: var(--ink);
+    background: #f4f8ff;
+    background-image:
+      radial-gradient(1100px 620px at 12% -10%, #e3edff 0%, rgba(227, 237, 255, 0) 64%),
+      radial-gradient(900px 520px at 100% 0%, #e6f6f0 0%, rgba(230, 246, 240, 0) 60%),
+      linear-gradient(180deg, #f7faff 0%, #f2f7ff 55%, #f6fbf8 100%);
+    min-height: 100vh;
+    -webkit-font-smoothing: antialiased;
+  }
+  .page { max-width: 1240px; margin: 0 auto; padding: 26px 20px 72px; }
+
+  .hero { display: flex; align-items: flex-end; justify-content: space-between; gap: 18px; flex-wrap: wrap; margin-bottom: 20px; }
+  .hero h1 { margin: 0; font-size: clamp(23px, 3vw, 31px); font-weight: 680; letter-spacing: -.02em; }
+  .sub { margin: 6px 0 0; font-size: 13px; color: var(--ink3); }
+  .kpis { display: flex; gap: 9px; flex-wrap: wrap; }
+  .kpi {
+    padding: 9px 15px; border-radius: 14px; background: var(--card); border: 1px solid var(--line);
+    -webkit-backdrop-filter: blur(18px) saturate(1.4); backdrop-filter: blur(18px) saturate(1.4);
+    box-shadow: 0 6px 20px rgba(20, 50, 110, .05);
+  }
+  .kpi-num { display: block; font-size: 20px; font-weight: 660; font-variant-numeric: tabular-nums; letter-spacing: -.01em; }
+  .kpi-label { font-size: 11.5px; color: var(--ink3); }
+
+  .add {
+    background: var(--card); border: 1px solid var(--line); border-radius: 18px; padding: 13px;
+    -webkit-backdrop-filter: blur(20px) saturate(1.5); backdrop-filter: blur(20px) saturate(1.5);
+    box-shadow: 0 10px 30px rgba(20, 50, 110, .06);
+  }
+  .add form { display: flex; gap: 9px; flex-wrap: wrap; align-items: center; }
+  .add input, .add select {
+    font-family: inherit; font-size: 14px; color: var(--ink);
+    padding: 10px 12px; border-radius: 11px; border: 1px solid var(--line);
+    background: rgba(255, 255, 255, .92); outline: none; transition: border-color .15s, box-shadow .15s;
+    min-width: 0;
+  }
+  .add input#taskInput { flex: 2 1 230px; }
+  .add input#catInput { flex: 1 1 100px; }
+  .add select#prioInput { flex: 0 0 auto; }
+  .add input#dueInput { flex: 0 0 auto; color: var(--ink2); }
+  .add input:focus, .add select:focus { border-color: rgba(47, 107, 255, .55); box-shadow: 0 0 0 3px rgba(47, 107, 255, .13); }
+  #addBtn {
+    font-family: inherit; font-size: 14px; font-weight: 620; color: #fff; cursor: pointer;
+    padding: 10px 22px; border-radius: 11px; border: 0;
+    background: linear-gradient(180deg, #3f7cff, #2f6bff);
+    box-shadow: 0 6px 16px rgba(47, 107, 255, .28); transition: transform .12s, opacity .15s;
+  }
+  #addBtn:hover { transform: translateY(-1px); }
+  #addBtn:disabled { opacity: .6; cursor: default; transform: none; }
+
+  .toolbar { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin: 18px 0 14px; }
+  #searchInput {
+    font-family: inherit; font-size: 13.5px; color: var(--ink);
+    padding: 8px 13px; border-radius: 10px; border: 1px solid var(--line);
+    background: rgba(255, 255, 255, .85); outline: none; width: 210px; max-width: 100%;
+  }
+  #searchInput:focus { border-color: rgba(47, 107, 255, .5); box-shadow: 0 0 0 3px rgba(47, 107, 255, .1); }
+  .chips { display: flex; gap: 6px; flex-wrap: wrap; }
+  .chip {
+    font-family: inherit; font-size: 12.5px; padding: 5px 11px; border-radius: 999px; cursor: pointer;
+    background: rgba(255, 255, 255, .82); border: 1px solid var(--line); color: var(--ink2);
+    transition: background .15s, color .15s, border-color .15s;
+  }
+  .chip:hover { border-color: rgba(47, 107, 255, .35); }
+  .chip.on { background: var(--brand); border-color: transparent; color: #fff; }
+  .switch { display: inline-flex; align-items: center; gap: 6px; font-size: 12.5px; color: var(--ink2); cursor: pointer; margin-left: auto; }
+  .switch input { accent-color: var(--brand); }
+
+  /* ---------- 今日聚焦 ---------- */
+  [hidden] { display: none !important; }
+  .viewtabs { display: inline-flex; gap: 3px; padding: 3px; border-radius: 11px; background: rgba(255, 255, 255, .72); border: 1px solid var(--line); }
+  .vtab {
+    font-family: inherit; font-size: 12.5px; padding: 5px 12px; border-radius: 8px; cursor: pointer;
+    border: 0; background: transparent; color: var(--ink2); transition: background .15s, color .15s;
+  }
+  .vtab:hover { color: var(--brand); }
+  .vtab.on { background: var(--brand); color: #fff; box-shadow: 0 3px 9px rgba(47, 107, 255, .25); }
+  .vtab .n { font-variant-numeric: tabular-nums; opacity: .8; margin-left: 3px; }
+  .date-row { display: inline-flex; align-items: center; gap: 9px; flex: 0 1 auto; }
+  .date-field { display: inline-flex; align-items: center; gap: 5px; flex: 0 0 auto; }
+  .date-field > span { font-size: 11px; color: var(--ink3); white-space: nowrap; }
+  .date-field input { font-size: 13px; padding: 9px 9px; color: var(--ink2); max-width: 152px; min-width: 0; }
+  .badge.plan { background: rgba(47, 107, 255, .1); color: #2456c9; }
+  .badge.plan.today { background: rgba(47, 107, 255, .17); color: #1f4ec2; font-weight: 600; }
+  .kpi.warn .kpi-num { color: var(--red); }
+
+  /* ---------- 删除撤销 ---------- */
+  .toast {
+    position: fixed; left: 50%; bottom: 26px; transform: translateX(-50%); z-index: 70;
+    display: flex; align-items: center; gap: 14px; max-width: min(520px, calc(100vw - 32px));
+    background: rgba(22, 32, 46, .94); color: #fff; font-size: 13px;
+    padding: 10px 12px 10px 18px; border-radius: 12px; box-shadow: 0 10px 26px rgba(16, 30, 60, .22);
+  }
+  .toast .toast-text { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .toast button {
+    font-family: inherit; font-size: 12.5px; font-weight: 620; color: #fff; cursor: pointer;
+    padding: 5px 12px; border-radius: 8px; border: 1px solid rgba(255, 255, 255, .36); background: rgba(255, 255, 255, .1);
+  }
+  .toast button:hover { background: rgba(255, 255, 255, .22); }
+
+  /* ---------- 改期弹窗 ---------- */
+  .plan-sheet { width: min(420px, 100%); }
+  .plan-quick { display: flex; gap: 7px; flex-wrap: wrap; margin: 4px 0 2px; }
+  .plan-quick button {
+    font-family: inherit; font-size: 12.5px; padding: 7px 13px; border-radius: 9px; cursor: pointer;
+    border: 1px solid var(--line); background: #fff; color: var(--ink2);
+  }
+  .plan-quick button:hover { border-color: rgba(47, 107, 255, .4); color: var(--brand); background: #f5f9ff; }
+  .plan-sheet .date-field { margin: 4px 0 6px; }
+  .plan-sheet .date-field input { font-size: 14px; padding: 9px 11px; }
+
+  .board { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 13px; align-items: start; }
+  .col {
+    background: rgba(255, 255, 255, .46); border: 1px solid var(--line); border-radius: 16px;
+    padding: 11px; display: flex; flex-direction: column; gap: 9px; min-height: 130px;
+  }
+  .col-head { display: flex; align-items: center; gap: 7px; padding: 1px 3px 6px; }
+  .col-head h2 { margin: 0; font-size: 13px; font-weight: 620; letter-spacing: .01em; color: var(--ink2); }
+  .dot { width: 7px; height: 7px; border-radius: 50%; flex: 0 0 auto; }
+  .s-todo { background: #8493a8; }
+  .s-doing { background: var(--brand); }
+  .s-done { background: var(--green); }
+  .s-hold { background: #c2901f; }
+  .count { margin-left: auto; font-size: 11.5px; color: var(--ink3); font-variant-numeric: tabular-nums; }
+  .col-body { display: flex; flex-direction: column; gap: 8px; }
+
+  .card {
+    background: #fff; border: 1px solid var(--line); border-radius: 13px; padding: 11px 12px 10px;
+    box-shadow: 0 2px 8px rgba(20, 50, 110, .045); transition: box-shadow .16s, transform .16s;
+  }
+  .card:hover { box-shadow: 0 8px 20px rgba(20, 50, 110, .1); transform: translateY(-1px); }
+  .card-title { font-size: 13.8px; line-height: 1.5; font-weight: 560; word-break: break-word; }
+  .card.done .card-title { color: var(--ink3); text-decoration: line-through; }
+  .meta { display: flex; gap: 5px; flex-wrap: wrap; margin-top: 7px; }
+  .badge { font-size: 11px; line-height: 1.7; padding: 0 7px; border-radius: 6px; background: #f1f5fb; color: var(--ink2); white-space: nowrap; }
+  .badge.hi { background: rgba(229, 72, 77, .11); color: var(--red); }
+  .badge.mid { background: rgba(214, 158, 46, .16); color: #9a6a12; }
+  .badge.low { background: rgba(120, 135, 155, .13); color: #5d6b80; }
+  .badge.over { background: rgba(229, 72, 77, .11); color: var(--red); }
+  .note { margin: 6px 0 0; font-size: 12px; line-height: 1.5; color: var(--ink3); word-break: break-word; }
+
+  /* ---------- 富文本描述 ---------- */
+  #descToggle {
+    flex: 1 1 100%; text-align: left; font-family: inherit; font-size: 12.5px; color: var(--brand);
+    background: transparent; border: 0; padding: 3px 2px 0; cursor: pointer;
+  }
+  #descToggle:hover { text-decoration: underline; }
+  .rt-wrap { flex: 1 1 100%; }
+  .rt-bar { display: flex; gap: 4px; flex-wrap: wrap; align-items: center; padding: 4px 1px 7px; }
+  .rt-btn {
+    font-family: inherit; font-size: 12px; line-height: 1; height: 26px; min-width: 27px; padding: 0 7px;
+    border-radius: 7px; border: 1px solid var(--line); background: #fff; color: var(--ink2); cursor: pointer;
+    display: inline-flex; align-items: center; justify-content: center; transition: background .14s, color .14s, border-color .14s;
+  }
+  .rt-btn:hover { background: #f3f7fd; border-color: rgba(47, 107, 255, .32); color: var(--ink); }
+  .rt-btn.on { background: rgba(47, 107, 255, .12); border-color: rgba(47, 107, 255, .42); color: var(--brand); }
+  .rt-editor {
+    font-size: 13.5px; line-height: 1.62; color: var(--ink); outline: none;
+    min-height: 78px; max-height: 230px; overflow-y: auto; padding: 9px 11px;
+    border-radius: 11px; border: 1px solid var(--line); background: rgba(255, 255, 255, .94);
+  }
+  .rt-editor:focus { border-color: rgba(47, 107, 255, .55); box-shadow: 0 0 0 3px rgba(47, 107, 255, .13); }
+  .rt-editor:empty::before { content: attr(data-ph); color: var(--ink3); pointer-events: none; }
+  .rt-editor ul, .rt-editor ol { margin: 3px 0; padding-left: 19px; }
+  .rt-editor p, .rt-editor div { margin: 0 0 3px; }
+
+  .rt-block { margin-top: 7px; }
+  .rt-view { font-size: 12.5px; line-height: 1.6; color: var(--ink2); word-break: break-word; }
+  .rt-view.clamp { max-height: 4.9em; overflow: hidden; position: relative; }
+  .rt-view.clamp::after {
+    content: ''; position: absolute; left: 0; right: 0; bottom: 0; height: 1.4em;
+    background: linear-gradient(180deg, rgba(255, 255, 255, 0), #fff 74%);
+  }
+  .rt-view p, .rt-view div { margin: 0 0 4px; }
+  .rt-view p:last-child, .rt-view div:last-child { margin-bottom: 0; }
+  .rt-view ul, .rt-view ol { margin: 3px 0; padding-left: 18px; }
+  .rt-view li { margin: 1px 0; }
+  .rt-view b, .rt-view strong { color: var(--ink); font-weight: 660; }
+  .rt-view a { color: var(--brand); }
+  .rt-more {
+    margin-top: 3px; padding: 0; border: 0; background: none; cursor: pointer;
+    font-family: inherit; font-size: 11.5px; color: var(--brand);
+  }
+  .rt-more:hover { text-decoration: underline; }
+
+  .mask {
+    position: fixed; inset: 0; z-index: 80; display: flex; align-items: center; justify-content: center; padding: 18px;
+    background: rgba(16, 28, 48, .34); -webkit-backdrop-filter: blur(3px); backdrop-filter: blur(3px);
+  }
+  .sheet {
+    width: min(580px, 100%); max-height: 84vh; display: flex; flex-direction: column; gap: 9px; padding: 15px;
+    background: #fff; border-radius: 17px; box-shadow: 0 24px 60px rgba(16, 30, 60, .26);
+  }
+  .sheet h3 { margin: 0; font-size: 14.5px; font-weight: 640; }
+  .sheet .task-label { font-size: 12.5px; color: var(--ink3); word-break: break-word; }
+  .sheet .rt-editor { flex: 1 1 auto; max-height: none; min-height: 168px; }
+  .sheet-foot { display: flex; gap: 8px; justify-content: flex-end; }
+  .btn-ghost {
+    font-family: inherit; font-size: 13px; padding: 8px 16px; border-radius: 10px; cursor: pointer;
+    border: 1px solid var(--line); background: #fff; color: var(--ink2);
+  }
+  .btn-ghost:hover { background: #f4f8ff; }
+  .btn-solid {
+    font-family: inherit; font-size: 13px; font-weight: 620; padding: 8px 18px; border-radius: 10px; border: 0;
+    background: linear-gradient(180deg, #3f7cff, #2f6bff); color: #fff; cursor: pointer;
+    box-shadow: 0 6px 16px rgba(47, 107, 255, .24);
+  }
+  .btn-solid:hover { transform: translateY(-1px); }
+  .actions { display: flex; gap: 5px; margin-top: 9px; opacity: .5; transition: opacity .16s; }
+  .card:hover .actions { opacity: 1; }
+  .act {
+    font-family: inherit; font-size: 11.5px; padding: 3px 9px; border-radius: 7px; cursor: pointer;
+    border: 1px solid var(--line); background: #fff; color: var(--ink2); transition: background .14s, color .14s;
+  }
+  .act:hover { background: #f3f7fd; }
+  .act.primary { color: var(--brand); border-color: rgba(47, 107, 255, .32); }
+  .act.danger { color: var(--red); }
+  .empty { font-size: 12.5px; color: var(--ink3); text-align: center; padding: 16px 8px; border: 1px dashed var(--line); border-radius: 11px; }
+  .loading { grid-column: 1 / -1; text-align: center; padding: 46px 0; font-size: 13px; color: var(--ink3); }
+  .banner {
+    position: fixed; left: 50%; bottom: 26px; transform: translateX(-50%);
+    background: rgba(22, 32, 46, .93); color: #fff; font-size: 13px;
+    padding: 10px 18px; border-radius: 12px; box-shadow: 0 10px 26px rgba(16, 30, 60, .22); z-index: 60;
+  }
+  @media (hover: none) { .actions { opacity: 1; } }
+  @media (max-width: 1100px) { .board { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+  @media (max-width: 720px) {
+    .page { padding: 16px 12px 58px; }
+    .hero { align-items: stretch; gap: 11px; margin-bottom: 14px; }
+    .hero h1 { font-size: 20px; }
+    .sub { font-size: 11.5px; margin-top: 3px; }
+    .kpis { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 6px; width: 100%; }
+    .kpi { padding: 7px 6px; border-radius: 11px; text-align: center; }
+    .kpi-num { font-size: 17px; }
+    .kpi-label { font-size: 10px; }
+    .add { padding: 10px; border-radius: 14px; }
+    .add form { gap: 7px; }
+    .add input, .add select { font-size: 13px; padding: 8px 9px; }
+    .date-row { gap: 7px; }
+    .date-field input { max-width: 148px; font-size: 12px; padding: 8px 6px; }
+    #addBtn { padding: 9px 14px; font-size: 13px; }
+    .toolbar { gap: 8px; margin: 12px 0 10px; }
+    #searchInput { flex: 1 1 130px; width: auto; }
+    .switch { margin-left: 0; font-size: 11.5px; }
+    .board { grid-template-columns: 1fr; gap: 9px; }
+    .col { padding: 8px; gap: 6px; min-height: 0; border-radius: 13px; }
+    .col[data-col="进行中"] { order: 1; }
+    .col[data-col="待办"] { order: 2; }
+    .col[data-col="已完成"] { order: 3; }
+    .col[data-col="搁置"] { order: 4; }
+    .col-head h2 { font-size: 12.5px; }
+    .card { padding: 9px 10px 8px; }
+    .card-title { font-size: 13px; }
+    .actions { opacity: 1; flex-wrap: wrap; }
+    .empty { padding: 10px 8px; }
+    .toast { bottom: 14px; gap: 10px; font-size: 12px; padding-left: 13px; }
+  }
+  @media (max-width: 640px) {
+    .add input#taskInput { flex: 1 1 100%; }
+    #addBtn { flex: 1 1 100%; }
+  }
+</style>
+</head>
+<body>
+<div class="page">
+  <header class="hero">
+    <div>
+      <h1>我的待办台</h1>
+      <p class="sub" id="todayLabel">—</p>
+    </div>
+    <div class="kpis">
+      <div class="kpi"><span class="kpi-num" data-kpi="focus" data-sp-bindable="database" data-sp-database-id="YOUR_DATABASE_ID">0</span><span class="kpi-label">今天要做</span></div>
+      <div class="kpi" data-kpi-box="overdue"><span class="kpi-num" data-kpi="overdue" data-sp-bindable="database" data-sp-database-id="YOUR_DATABASE_ID">0</span><span class="kpi-label">已逾期</span></div>
+      <div class="kpi"><span class="kpi-num" data-kpi="doneToday" data-sp-bindable="database" data-sp-database-id="YOUR_DATABASE_ID">0</span><span class="kpi-label">今日完成</span></div>
+      <div class="kpi"><span class="kpi-num" data-kpi="rate" data-sp-bindable="database" data-sp-database-id="YOUR_DATABASE_ID">0%</span><span class="kpi-label">完成率</span></div>
+    </div>
+  </header>
+
+  <section class="add">
+    <form id="addForm" autocomplete="off">
+      <input id="taskInput" name="task" type="text" placeholder="要做什么？写下来回车就行" maxlength="120">
+      <select id="prioInput" name="priority"><option value="">优先级</option></select>
+      <input id="catInput" name="category" type="text" placeholder="分类，如 企微/AI" maxlength="24">
+      <div class="date-row">
+        <label class="date-field"><span>计划</span><input id="planInput" name="plan" type="date" title="我打算哪天做"></label>
+        <label class="date-field"><span>截止</span><input id="dueInput" name="due" type="date" title="最晚哪天要交"></label>
+      </div>
+      <button type="submit" id="addBtn">添加</button>
+      <button type="button" id="descToggle">＋ 补充描述（可加粗、分条）</button>
+      <div class="rt-wrap" id="rtWrap" hidden>
+        <div class="rt-bar" id="addBar">
+          <button type="button" class="rt-btn" data-cmd="bold" title="加粗 Ctrl+B"><b>B</b></button>
+          <button type="button" class="rt-btn" data-cmd="italic" title="斜体 Ctrl+I"><i>I</i></button>
+          <button type="button" class="rt-btn" data-cmd="underline" title="下划线 Ctrl+U"><u>U</u></button>
+          <button type="button" class="rt-btn" data-cmd="strikeThrough" title="删除线"><s>S</s></button>
+          <button type="button" class="rt-btn" data-cmd="insertUnorderedList" title="项目符号列表">• 列表</button>
+          <button type="button" class="rt-btn" data-cmd="insertOrderedList" title="编号列表">1. 列表</button>
+          <button type="button" class="rt-btn" data-cmd="removeFormat" title="清除格式">清格式</button>
+        </div>
+        <div class="rt-editor" id="descEditor" contenteditable="true" data-ph="简述要做的事：背景、关键点、验收标准…"></div>
+      </div>
+    </form>
+  </section>
+
+  <section class="toolbar">
+    <div class="viewtabs" id="viewTabs">
+      <button type="button" class="vtab" data-view="today">今天<span class="n" id="focusCount">0</span></button>
+      <button type="button" class="vtab on" data-view="all">全部</button>
+    </div>
+    <input id="searchInput" type="search" placeholder="搜索任务…">
+    <div class="chips" id="catChips"></div>
+    <label class="switch"><input type="checkbox" id="hideDone"> 隐藏已完成</label>
+  </section>
+
+  <section class="board" id="board">
+    <div class="col" data-col="待办">
+      <div class="col-head"><span class="dot s-todo"></span><h2>待办</h2><span class="count" data-count="待办" data-sp-bindable="database" data-sp-database-id="YOUR_DATABASE_ID">0</span></div>
+      <div class="col-body" data-list="待办"></div>
+    </div>
+    <div class="col" data-col="进行中">
+      <div class="col-head"><span class="dot s-doing"></span><h2>进行中</h2><span class="count" data-count="进行中" data-sp-bindable="database" data-sp-database-id="YOUR_DATABASE_ID">0</span></div>
+      <div class="col-body" data-list="进行中"></div>
+    </div>
+    <div class="col" data-col="已完成">
+      <div class="col-head"><span class="dot s-done"></span><h2>已完成</h2><span class="count" data-count="已完成" data-sp-bindable="database" data-sp-database-id="YOUR_DATABASE_ID">0</span></div>
+      <div class="col-body" data-list="已完成"></div>
+    </div>
+    <div class="col" data-col="搁置">
+      <div class="col-head"><span class="dot s-hold"></span><h2>搁置</h2><span class="count" data-count="搁置" data-sp-bindable="database" data-sp-database-id="YOUR_DATABASE_ID">0</span></div>
+      <div class="col-body" data-list="搁置"></div>
+    </div>
+    <div class="loading" id="loading">正在加载你的待办…</div>
+  </section>
+
+  <div class="banner" id="banner" hidden></div>
+  <div class="toast" id="toast" hidden>
+    <span class="toast-text" id="toastText"></span>
+    <button type="button" id="undoBtn">撤销</button>
+  </div>
+</div>
+
+<div class="mask" id="descMask" hidden>
+  <div class="sheet">
+    <h3>编辑任务描述</h3>
+    <div class="task-label" id="descTaskLabel"></div>
+    <div class="rt-bar" id="editBar">
+      <button type="button" class="rt-btn" data-cmd="bold" title="加粗 Ctrl+B"><b>B</b></button>
+      <button type="button" class="rt-btn" data-cmd="italic" title="斜体 Ctrl+I"><i>I</i></button>
+      <button type="button" class="rt-btn" data-cmd="underline" title="下划线 Ctrl+U"><u>U</u></button>
+      <button type="button" class="rt-btn" data-cmd="strikeThrough" title="删除线"><s>S</s></button>
+      <button type="button" class="rt-btn" data-cmd="insertUnorderedList" title="项目符号列表">• 列表</button>
+      <button type="button" class="rt-btn" data-cmd="insertOrderedList" title="编号列表">1. 列表</button>
+      <button type="button" class="rt-btn" data-cmd="removeFormat" title="清除格式">清格式</button>
+    </div>
+    <div class="rt-editor" id="editEditor" contenteditable="true" data-ph="简述要做的事：背景、关键点、验收标准…"></div>
+    <div class="sheet-foot">
+      <button type="button" class="btn-ghost" id="descCancel">取消</button>
+      <button type="button" class="btn-solid" id="descSave">保存</button>
+    </div>
+  </div>
+</div>
+
+<div class="mask" id="planMask" hidden>
+  <div class="sheet plan-sheet">
+    <h3>安排到哪一天</h3>
+    <div class="task-label" id="planTaskLabel"></div>
+    <div class="plan-quick" id="planQuick">
+      <button type="button" data-plan="today">今天</button>
+      <button type="button" data-plan="tomorrow">明天</button>
+      <button type="button" data-plan="plus3">3 天后</button>
+      <button type="button" data-plan="nextmon">下周一</button>
+    </div>
+    <label class="date-field"><span>计划日期</span><input type="date" id="planPick"></label>
+    <div class="sheet-foot">
+      <button type="button" class="btn-ghost" id="planCancel">取消</button>
+      <button type="button" class="btn-solid" id="planSave">保存</button>
+    </div>
+  </div>
+</div>
+
+<script>
+(function () {
+  var DATABASE_ID = 'YOUR_DATABASE_ID';
+  var SP = (typeof window !== 'undefined' && window.__SMART_PAGE__) ? window.__SMART_PAGE__ : null;
+  var db = (SP && SP.database) ? SP.database : null;
+
+  var F = { task: '任务', status: '状态', priority: '优先级', cat: '分类', plan: '计划日期', due: '截止日期', done: '完成日期', note: '备注', detail: '详情' };
+  var COLS = ['待办', '进行中', '已完成', '搁置'];
+  var STATUS_ID = {};
+  var STATUS_TEXT = {};
+  var PRIO_ID = {};
+  var PRIO_TEXT = {};
+  var ROWS = [];
+  var view = { q: '', cat: '', hideDone: false, todayOnly: false };
+  var DRAFT_KEY = 'todo_draft_v1';
+  var VIEW_KEY = 'todo_view_v3';
+  var draftTimer = null;
+  var EXPANDED = {};
+  var editId = '';
+  var planId = '';
+  var pendingDel = null;
+  var toastTimer = null;
+
+  var taskInput, prioInput, catInput, planInput, dueInput, addBtn, addForm, searchInput, hideDone, bannerEl, boardEl, loadingEl, chipsEl;
+  var descToggle, rtWrap, descEditor, addBar, descMask, editEditor, editBar, descTaskLabel;
+  var viewTabs, focusCountEl, toastEl, toastText, undoBtn, planMask, planTaskLabel, planQuick, planPick;
+
+  function el(tag, cls, text) {
+    var n = document.createElement(tag);
+    if (cls) { n.className = cls; }
+    if (text !== undefined && text !== null) { n.textContent = text; }
+    return n;
+  }
+  function bind(node) {
+    node.setAttribute('data-sp-bindable', 'database');
+    node.setAttribute('data-sp-database-id', DATABASE_ID);
+    return node;
+  }
+  function todayISO() {
+    var d = new Date();
+    var m = d.getMonth() + 1;
+    var day = d.getDate();
+    return d.getFullYear() + '-' + (m < 10 ? '0' + m : m) + '-' + (day < 10 ? '0' + day : day);
+  }
+  function isoDate(v) {
+    if (!v) { return ''; }
+    var s = String(v);
+    return s.length >= 10 ? s.slice(0, 10) : s;
+  }
+  function statusText(v) {
+    if (v === undefined || v === null) { return ''; }
+    return STATUS_TEXT[v] || String(v);
+  }
+  function optId(field, text) {
+    if (field === F.status) { return STATUS_ID[text] || text; }
+    if (field === F.priority) { return PRIO_ID[text] || text; }
+    return text;
+  }
+  function showBanner(msg) {
+    if (!bannerEl) { return; }
+    bannerEl.textContent = msg;
+    bannerEl.hidden = false;
+    window.setTimeout(function () { bannerEl.hidden = true; }, 3000);
+  }
+
+  /* ---------- 今日聚焦 ---------- */
+  function shiftISO(base, days) {
+    var parts = String(base).split('-');
+    var d = new Date(Number(parts[0]), Number(parts[1]) - 1, Number(parts[2]) + days);
+    var m = d.getMonth() + 1;
+    var day = d.getDate();
+    return d.getFullYear() + '-' + (m < 10 ? '0' + m : m) + '-' + (day < 10 ? '0' + day : day);
+  }
+  /* 今天视图：逾期 / 今天到期 / 今天或更早计划 / 尚未排期，都该在今天被看见；排到未来的先收起 */
+  function isFocus(r, st, today) {
+    if (st === '搁置') { return false; }
+    if (st === '已完成') { return isoDate(r[F.done]) === today; }
+    var plan = isoDate(r[F.plan]);
+    var due = isoDate(r[F.due]);
+    if (due && due <= today) { return true; }
+    if (plan && plan <= today) { return true; }
+    if (!plan && !due) { return true; }
+    return false;
+  }
+  function isOverdue(r, st, today) {
+    if (st === '已完成' || st === '搁置') { return false; }
+    var due = isoDate(r[F.due]);
+    return !!(due && due < today);
+  }
+  function readViewPref() {
+    try {
+      var raw = window.localStorage.getItem(VIEW_KEY);
+      if (raw === 'all') { view.todayOnly = false; }
+      else if (raw === 'today') { view.todayOnly = true; }
+    } catch (e) { /* 存储不可用时静默降级 */ }
+  }
+  function saveViewPref() {
+    try { window.localStorage.setItem(VIEW_KEY, view.todayOnly ? 'today' : 'all'); } catch (e) { /* 静默降级 */ }
+  }
+  function syncViewTabs() {
+    if (!viewTabs) { return; }
+    var tabs = viewTabs.querySelectorAll('[data-view]');
+    for (var i = 0; i < tabs.length; i++) {
+      var isTodayTab = tabs[i].getAttribute('data-view') === 'today';
+      if (isTodayTab === view.todayOnly) { tabs[i].classList.add('on'); } else { tabs[i].classList.remove('on'); }
+    }
+  }
+
+  /* ---------- 延迟提交删除：8 秒内可撤销，避免误删丢数据 ---------- */
+  var DELAY_MS = 8000;
+  function hideToast() {
+    if (toastTimer) { window.clearTimeout(toastTimer); toastTimer = null; }
+    if (toastEl) { toastEl.hidden = true; }
+  }
+  function showUndoToast(name) {
+    if (!toastEl || !toastText) { return; }
+    toastText.textContent = '已删除「' + name + '」';
+    toastEl.hidden = false;
+    if (toastTimer) { window.clearTimeout(toastTimer); }
+    toastTimer = window.setTimeout(function () {
+      toastTimer = null;
+      refresh();
+    }, DELAY_MS);
+  }
+  function flushDelete() {
+    if (!pendingDel) { return Promise.resolve(); }
+    var item = pendingDel;
+    pendingDel = null;
+    hideToast();
+    if (!db) { return Promise.resolve(); }
+    return db.deleteRecord({ databaseId: DATABASE_ID, recordId: item.id }).catch(function (err) {
+      console.error('[todo] 删除失败:', err);
+      showBanner('删除失败，记录已保留');
+    });
+  }
+
+  /* ---------- 富文本：白名单清洗，只留安全的行内/块级标签 ---------- */
+  var RT_ALLOWED = { B: 1, STRONG: 1, I: 1, EM: 1, U: 1, S: 1, STRIKE: 1, BR: 1, P: 1, DIV: 1, UL: 1, OL: 1, LI: 1, SPAN: 1, A: 1 };
+  var RT_BLOCKED = { SCRIPT: 1, STYLE: 1, IFRAME: 1, OBJECT: 1, EMBED: 1, LINK: 1, META: 1, FORM: 1, INPUT: 1, IMG: 1, SVG: 1 };
+
+  function rtCopyClean(from, to) {
+    var i, node, tag, clone, href, kids;
+    kids = from.childNodes;
+    for (i = 0; i < kids.length; i++) {
+      node = kids[i];
+      if (node.nodeType === 3) {
+        to.appendChild(document.createTextNode(node.nodeValue));
+        continue;
+      }
+      if (node.nodeType !== 1) { continue; }
+      tag = String(node.tagName || '').toUpperCase();
+      if (RT_BLOCKED[tag]) { continue; }
+      if (!RT_ALLOWED[tag]) {
+        rtCopyClean(node, to);
+        continue;
+      }
+      if (tag === 'A') {
+        href = String(node.getAttribute('href') || '');
+        if (href.indexOf('http://') !== 0 && href.indexOf('https://') !== 0) {
+          rtCopyClean(node, to);
+          continue;
+        }
+        clone = document.createElement('a');
+        clone.setAttribute('href', href);
+        clone.setAttribute('target', '_blank');
+        clone.setAttribute('rel', 'noopener noreferrer');
+        rtCopyClean(node, clone);
+        to.appendChild(clone);
+        continue;
+      }
+      clone = document.createElement(tag.toLowerCase());
+      rtCopyClean(node, clone);
+      to.appendChild(clone);
+    }
+  }
+
+  function rtSanitize(html) {
+    var src = String(html === undefined || html === null ? '' : html);
+    if (!src) { return ''; }
+    var doc, root, out;
+    try {
+      doc = new DOMParser().parseFromString('<div id="rt-root">' + src + '</div>', 'text/html');
+    } catch (e) {
+      return '';
+    }
+    root = doc.getElementById('rt-root');
+    if (!root) { return ''; }
+    out = document.createElement('div');
+    rtCopyClean(root, out);
+    return out.innerHTML;
+  }
+
+  var rtProbe = null;
+  function rtText(html) {
+    var s = String(html === undefined || html === null ? '' : html);
+    if (!s) { return ''; }
+    if (!rtProbe) { rtProbe = document.createElement('div'); }
+    rtProbe.innerHTML = rtSanitize(s);
+    return String(rtProbe.textContent || '').replace(/\s+/g, ' ').trim();
+  }
+
+  function rtRead(editor) {
+    if (!editor) { return ''; }
+    var html = rtSanitize(editor.innerHTML);
+    if (!rtText(html)) { return ''; }
+    return html;
+  }
+
+  function rtSyncBar(bar, editor) {
+    if (!bar || !editor) { return; }
+    var btns = bar.querySelectorAll('[data-cmd]');
+    for (var i = 0; i < btns.length; i++) {
+      var cmd = btns[i].getAttribute('data-cmd');
+      var on = false;
+      if (cmd !== 'removeFormat') {
+        try { on = document.queryCommandState(cmd); } catch (e) { on = false; }
+      }
+      if (on) { btns[i].classList.add('on'); } else { btns[i].classList.remove('on'); }
+    }
+  }
+
+  function rtWire(bar, editor) {
+    if (!bar || !editor) { return; }
+    bar.addEventListener('mousedown', function (e) {
+      var b = e.target && e.target.closest ? e.target.closest('[data-cmd]') : null;
+      if (b) { e.preventDefault(); }
+    });
+    bar.addEventListener('click', function (e) {
+      var b = e.target && e.target.closest ? e.target.closest('[data-cmd]') : null;
+      if (!b) { return; }
+      e.preventDefault();
+      var cmd = b.getAttribute('data-cmd');
+      editor.focus();
+      try { document.execCommand('styleWithCSS', false, false); } catch (e1) { /* 忽略 */ }
+      try { document.execCommand(cmd, false, null); } catch (e2) { /* 忽略 */ }
+      rtSyncBar(bar, editor);
+    });
+    editor.addEventListener('keyup', function () { rtSyncBar(bar, editor); });
+    editor.addEventListener('mouseup', function () { rtSyncBar(bar, editor); });
+    editor.addEventListener('focus', function () { rtSyncBar(bar, editor); });
+  }
+
+  function setDescOpen(open) {
+    if (!rtWrap || !descToggle) { return; }
+    rtWrap.hidden = !open;
+    descToggle.textContent = open ? '收起描述' : '＋ 补充描述（可加粗、分条）';
+    if (open) { descEditor.focus(); }
+  }
+
+  function findRow(id) {
+    for (var i = 0; i < ROWS.length; i++) {
+      if (ROWS[i]._id === id) { return ROWS[i]; }
+    }
+    return null;
+  }
+
+  function boot() {
+    taskInput = document.getElementById('taskInput');
+    prioInput = document.getElementById('prioInput');
+    catInput = document.getElementById('catInput');
+    planInput = document.getElementById('planInput');
+    dueInput = document.getElementById('dueInput');
+    addBtn = document.getElementById('addBtn');
+    addForm = document.getElementById('addForm');
+    searchInput = document.getElementById('searchInput');
+    hideDone = document.getElementById('hideDone');
+    bannerEl = document.getElementById('banner');
+    boardEl = document.getElementById('board');
+    loadingEl = document.getElementById('loading');
+    chipsEl = document.getElementById('catChips');
+    descToggle = document.getElementById('descToggle');
+    rtWrap = document.getElementById('rtWrap');
+    descEditor = document.getElementById('descEditor');
+    addBar = document.getElementById('addBar');
+    descMask = document.getElementById('descMask');
+    editEditor = document.getElementById('editEditor');
+    editBar = document.getElementById('editBar');
+    descTaskLabel = document.getElementById('descTaskLabel');
+    viewTabs = document.getElementById('viewTabs');
+    focusCountEl = document.getElementById('focusCount');
+    toastEl = document.getElementById('toast');
+    toastText = document.getElementById('toastText');
+    undoBtn = document.getElementById('undoBtn');
+    planMask = document.getElementById('planMask');
+    planTaskLabel = document.getElementById('planTaskLabel');
+    planQuick = document.getElementById('planQuick');
+    planPick = document.getElementById('planPick');
+    rtWire(addBar, descEditor);
+    rtWire(editBar, editEditor);
+    readViewPref();
+    syncViewTabs();
+    if (planInput) { planInput.value = todayISO(); }
+
+    var label = document.getElementById('todayLabel');
+    var wk = ['周日', '周一', '周二', '周三', '周四', '周五', '周六'];
+    var now = new Date();
+    label.textContent = now.getFullYear() + ' 年 ' + (now.getMonth() + 1) + ' 月 ' + now.getDate() + ' 日 · ' + wk[now.getDay()];
+
+    bindEvents();
+
+    if (!db) {
+      loadingEl.hidden = true;
+      render();
+      showBanner('当前环境未连接数据服务，页面仅作预览');
+      return;
+    }
+
+    db.getSchema({ databaseId: DATABASE_ID }).then(function (schema) {
+      buildOptionMaps(schema);
+    }).catch(function (err) {
+      console.error('[todo] 字段配置加载失败:', err);
+    }).then(function () {
+      restoreDraft();
+      return refresh();
+    }).catch(function (err) {
+      console.error('[todo] 初始化失败:', err);
+      loadingEl.hidden = true;
+      showBanner('数据加载失败，请刷新重试');
+    });
+  }
+
+  function buildOptionMaps(schema) {
+    var props = (schema && schema.properties) || [];
+    var i, j, p, opts, o;
+    for (i = 0; i < props.length; i++) {
+      p = props[i];
+      opts = (p.config && p.config.options) || [];
+      for (j = 0; j < opts.length; j++) {
+        o = opts[j];
+        if (p.name === F.status) {
+          STATUS_ID[o.text] = o.id;
+          STATUS_TEXT[o.id] = o.text;
+          STATUS_TEXT[o.text] = o.text;
+        }
+        if (p.name === F.priority) {
+          PRIO_ID[o.text] = o.id;
+          PRIO_TEXT[o.id] = o.text;
+          PRIO_TEXT[o.text] = o.text;
+        }
+      }
+      if (p.name === F.priority) { renderPriorityOptions(opts); }
+    }
+  }
+
+  function renderPriorityOptions(opts) {
+    if (!prioInput || !opts || !opts.length) { return; }
+    var keep = prioInput.value;
+    while (prioInput.options.length > 1) { prioInput.remove(1); }
+    for (var i = 0; i < opts.length; i++) {
+      var op = document.createElement('option');
+      op.value = opts[i].id;
+      op.textContent = opts[i].text;
+      prioInput.appendChild(op);
+    }
+    if (keep) { prioInput.value = keep; }
+  }
+
+  function loadAll(startCursor, acc, guard) {
+    acc = acc || [];
+    guard = guard || 0;
+    if (guard > 100) { return Promise.resolve(acc); }
+    return db.query({ databaseId: DATABASE_ID, pageSize: 200, startCursor: startCursor }).then(function (r) {
+      acc = acc.concat(r.results || []);
+      var next = r.nextCursor;
+      if (r.hasMore && next && next !== startCursor && (r.results || []).length) {
+        return loadAll(next, acc, guard + 1);
+      }
+      return acc;
+    }).catch(function (err) {
+      console.error('[todo] 分页读取失败:', err);
+      throw err;
+    });
+  }
+
+  function refresh() {
+    return flushDelete().then(function () {
+      return loadAll();
+    }).then(function (rows) {
+      ROWS = rows;
+      loadingEl.hidden = true;
+      render();
+    }).catch(function (err) {
+      console.error('[todo] 数据加载失败:', err);
+      loadingEl.hidden = true;
+      showBanner('数据加载失败，请刷新重试');
+      render();
+    });
+  }
+
+  function matches(r, today) {
+    var st = statusText(r[F.status]) || '待办';
+    if (view.todayOnly && !isFocus(r, st, today)) { return false; }
+    if (view.hideDone && st === '已完成') { return false; }
+    if (view.cat && String(r[F.cat] || '') !== view.cat) { return false; }
+    if (view.q) {
+      var hay = (String(r[F.task] || '') + ' ' + String(r[F.cat] || '') + ' ' + String(r[F.note] || '') +
+        ' ' + rtText(r[F.detail])).toLowerCase();
+      if (hay.indexOf(view.q.toLowerCase()) < 0) { return false; }
+    }
+    return true;
+  }
+
+  function prioRank(r) {
+    var p = PRIO_TEXT[r[F.priority]] || String(r[F.priority] || '');
+    if (p === '高') { return 0; }
+    if (p === '中') { return 1; }
+    if (p === '低') { return 2; }
+    return 3;
+  }
+
+  function urgency(r, st, today) {
+    if (st === '已完成' || st === '搁置') { return 5; }
+    var plan = isoDate(r[F.plan]);
+    var due = isoDate(r[F.due]);
+    if (due && due < today) { return 0; }
+    if (due === today) { return 1; }
+    if (plan && plan <= today) { return 2; }
+    if (!plan && !due) { return 3; }
+    return 4;
+  }
+  function nextDate(r) {
+    var plan = isoDate(r[F.plan]);
+    var due = isoDate(r[F.due]);
+    if (plan && due) { return plan < due ? plan : due; }
+    return plan || due || '9999-99-99';
+  }
+  function sortRows(list, today) {
+    list.sort(function (a, b) {
+      var ua = urgency(a, statusText(a[F.status]) || '待办', today);
+      var ub = urgency(b, statusText(b[F.status]) || '待办', today);
+      if (ua !== ub) { return ua - ub; }
+      var ra = prioRank(a);
+      var rb = prioRank(b);
+      if (ra !== rb) { return ra - rb; }
+      var da = nextDate(a);
+      var dbv = nextDate(b);
+      if (da < dbv) { return -1; }
+      if (da > dbv) { return 1; }
+      return 0;
+    });
+    return list;
+  }
+
+  function render() {
+    if (!boardEl) { return; }
+    var today = todayISO();
+    var doneCount = 0, todayDone = 0, holdCount = 0, focusCount = 0, overdueCount = 0;
+    var groups = { '待办': [], '进行中': [], '已完成': [], '搁置': [] };
+    var cats = {}, i, st, r;
+
+    for (i = 0; i < ROWS.length; i++) {
+      r = ROWS[i];
+      st = statusText(r[F.status]) || '待办';
+      if (st === '已完成') {
+        doneCount++;
+        if (isoDate(r[F.done]) === today) { todayDone++; }
+      } else if (st === '搁置') {
+        holdCount++;
+      }
+      if (isFocus(r, st, today)) { focusCount++; }
+      if (isOverdue(r, st, today)) { overdueCount++; }
+      if (groups[st] && matches(r, today)) { groups[st].push(r); }
+      if (r[F.cat]) { cats[String(r[F.cat])] = true; }
+    }
+
+    var active = ROWS.length - holdCount;
+    var rate = active > 0 ? Math.round(doneCount / active * 100) : 0;
+    setKpi('focus', focusCount);
+    setKpi('overdue', overdueCount);
+    setKpi('doneToday', todayDone);
+    setKpi('rate', rate + '%');
+    var overdueBox = document.querySelector('[data-kpi-box="overdue"]');
+    if (overdueBox) {
+      if (overdueCount > 0) { overdueBox.classList.add('warn'); } else { overdueBox.classList.remove('warn'); }
+    }
+    if (focusCountEl) { focusCountEl.textContent = String(focusCount); }
+    syncViewTabs();
+
+    renderChips(cats);
+
+    for (i = 0; i < COLS.length; i++) {
+      var key = COLS[i];
+      var col = boardEl.querySelector('[data-col="' + key + '"]');
+      var body = boardEl.querySelector('[data-list="' + key + '"]');
+      var counter = boardEl.querySelector('[data-count="' + key + '"]');
+      if (!body) { continue; }
+      if (col) { col.hidden = !!(view.todayOnly && key === '搁置'); }
+      while (body.firstChild) { body.removeChild(body.firstChild); }
+      var list = sortRows(groups[key], today);
+      if (counter) { counter.textContent = String(list.length); }
+      if (!list.length) {
+        body.appendChild(el('div', 'empty', view.todayOnly ? '今天没有安排 · 切到「全部」查看' : '暂无任务'));
+        continue;
+      }
+      for (var k = 0; k < list.length; k++) {
+        body.appendChild(buildCard(list[k], today));
+      }
+    }
+
+    if (window.requestAnimationFrame) { window.requestAnimationFrame(rtMeasure); } else { rtMeasure(); }
+  }
+
+  /* 描述没被截断时就不显示「展开」，避免多余按钮 */
+  function rtMeasure() {
+    if (!boardEl) { return; }
+    var blocks = boardEl.querySelectorAll('.rt-block');
+    for (var i = 0; i < blocks.length; i++) {
+      var viewEl = blocks[i].querySelector('.rt-view');
+      var more = blocks[i].querySelector('[data-more]');
+      if (!viewEl || !more) { continue; }
+      var clamped = String(viewEl.className).indexOf('clamp') >= 0;
+      if (!clamped) {
+        more.hidden = false;
+      } else {
+        more.hidden = viewEl.scrollHeight <= viewEl.clientHeight + 3;
+      }
+    }
+  }
+
+  function setKpi(name, value) {
+    var node = document.querySelector('[data-kpi="' + name + '"]');
+    if (node) { node.textContent = String(value); }
+  }
+
+  function renderChips(cats) {
+    if (!chipsEl) { return; }
+    while (chipsEl.firstChild) { chipsEl.removeChild(chipsEl.firstChild); }
+    var names = [];
+    for (var c in cats) { if (Object.prototype.hasOwnProperty.call(cats, c)) { names.push(c); } }
+    if (names.length < 2) { return; }
+    names.sort();
+    var all = el('button', 'chip' + (view.cat === '' ? ' on' : ''), '不限分类');
+    all.type = 'button';
+    all.setAttribute('data-cat', '');
+    chipsEl.appendChild(all);
+    for (var i = 0; i < names.length; i++) {
+      var b = el('button', 'chip' + (view.cat === names[i] ? ' on' : ''), names[i]);
+      b.type = 'button';
+      b.setAttribute('data-cat', names[i]);
+      chipsEl.appendChild(b);
+    }
+  }
+
+  function prioClass(p) {
+    if (p === '高') { return 'hi'; }
+    if (p === '中') { return 'mid'; }
+    if (p === '低') { return 'low'; }
+    return '';
+  }
+
+  function buildCard(r, today) {
+    today = today || todayISO();
+    var st = statusText(r[F.status]) || '待办';
+    var card = el('div', 'card' + (st === '已完成' ? ' done' : ''));
+    card.setAttribute('data-id', r._id || '');
+
+    var title = bind(el('div', 'card-title'));
+    title.textContent = String(r[F.task] || '(未命名任务)');
+    card.appendChild(title);
+
+    var meta = el('div', 'meta');
+    var p = r[F.priority] ? (PRIO_TEXT[r[F.priority]] || String(r[F.priority])) : '';
+    if (p) {
+      var pb = bind(el('span', 'badge ' + prioClass(p), p === '高' ? '高优先' : (p === '中' ? '中优先' : '低优先')));
+      meta.appendChild(pb);
+    }
+    if (r[F.cat]) {
+      meta.appendChild(bind(el('span', 'badge', String(r[F.cat]))));
+    }
+    var plan = isoDate(r[F.plan]);
+    if (plan) {
+      var planToday = plan === today;
+      var planOver = plan < today && st !== '已完成';
+      meta.appendChild(bind(el('span', 'badge plan' + (planToday ? ' today' : ''),
+        planToday ? '今天做' : (planOver ? '顺延 ' : '计划 ') + plan.slice(5))));
+    }
+    var due = isoDate(r[F.due]);
+    if (due) {
+      var over = st !== '已完成' && due < today;
+      meta.appendChild(bind(el('span', 'badge' + (over ? ' over' : ''), (over ? '已逾期 ' : '截止 ') + due.slice(5))));
+    }
+    if (st === '已完成') {
+      var dd = isoDate(r[F.done]);
+      if (dd) { meta.appendChild(bind(el('span', 'badge', '完成 ' + dd.slice(5)))); }
+    }
+    if (meta.childNodes.length) { card.appendChild(meta); }
+
+    var descHtml = rtSanitize(r[F.detail]);
+    if (descHtml && rtText(descHtml)) {
+      var rid = r._id || '';
+      var block = bind(el('div', 'rt-block'));
+      var viewEl = el('div', 'rt-view' + (EXPANDED[rid] ? '' : ' clamp'));
+      viewEl.innerHTML = rtSanitize(r[F.detail]);
+      block.appendChild(viewEl);
+      var moreBtn = el('button', 'rt-more', EXPANDED[rid] ? '收起' : '展开');
+      moreBtn.type = 'button';
+      moreBtn.setAttribute('data-more', rid);
+      block.appendChild(moreBtn);
+      card.appendChild(block);
+    }
+
+    if (r[F.note]) {
+      var note = bind(el('p', 'note'));
+      note.textContent = String(r[F.note]);
+      card.appendChild(note);
+    }
+
+    var actions = el('div', 'actions');
+    if (st === '待办' || st === '搁置') {
+      actions.appendChild(mkAct('start', '开始', 'primary'));
+    }
+    if (st !== '已完成') {
+      actions.appendChild(mkAct('done', '完成', 'primary'));
+    }
+    if (st === '进行中') {
+      actions.appendChild(mkAct('hold', '搁置', ''));
+    }
+    if (st === '已完成') {
+      actions.appendChild(mkAct('reopen', '重新打开', ''));
+    }
+    actions.appendChild(mkAct('desc', '写描述', ''));
+    actions.appendChild(mkAct('plan', '改期', ''));
+    actions.appendChild(mkAct('del', '删除', 'danger'));
+    card.appendChild(actions);
+
+    return card;
+  }
+
+  function mkAct(act, label, cls) {
+    var b = el('button', 'act' + (cls ? ' ' + cls : ''), label);
+    b.type = 'button';
+    b.setAttribute('data-act', act);
+    return b;
+  }
+
+  function findAct(node) {
+    while (node && node !== document) {
+      if (node.getAttribute && node.getAttribute('data-act')) { return node; }
+      node = node.parentNode;
+    }
+    return null;
+  }
+  function findCard(node) {
+    while (node && node !== document) {
+      if (node.getAttribute && node.getAttribute('data-id') !== null && node.className && String(node.className).indexOf('card') === 0) { return node; }
+      node = node.parentNode;
+    }
+    return null;
+  }
+
+  function setStatus(id, status) {
+    if (!db || !id) { return; }
+    var props = {};
+    props[F.status] = { select: optId(F.status, status) };
+    if (status === '已完成') { props[F.done] = { date: todayISO() }; }
+    db.updateRecord({ databaseId: DATABASE_ID, recordId: id, properties: props }).then(function () {
+      return refresh();
+    }).catch(function (err) {
+      console.error('[todo] 更新失败:', err);
+      showBanner('更新失败，请稍后重试');
+    });
+  }
+
+  function removeRecord(id) {
+    if (!db || !id) { return; }
+    var rec = findRow(id);
+    if (!rec) { return; }
+    flushDelete();
+    var next = [];
+    for (var i = 0; i < ROWS.length; i++) {
+      if (ROWS[i]._id !== id) { next.push(ROWS[i]); }
+    }
+    ROWS = next;
+    render();
+    pendingDel = { id: id, rec: rec };
+    showUndoToast(String(rec[F.task] || '这条待办'));
+  }
+  function undoDelete() {
+    if (!pendingDel) { return; }
+    var rec = pendingDel.rec;
+    pendingDel = null;
+    hideToast();
+    ROWS.push(rec);
+    render();
+    showBanner('已恢复');
+  }
+
+  function addTask() {
+    var name = String(taskInput.value || '').trim();
+    if (!name) {
+      taskInput.focus();
+      showBanner('先写下要做的事');
+      return;
+    }
+    if (!db) {
+      showBanner('当前环境未连接数据服务，暂时无法保存');
+      return;
+    }
+    addBtn.disabled = true;
+    addBtn.textContent = '添加中…';
+
+    var props = {};
+    props[F.task] = { text: name };
+    props[F.status] = { select: optId(F.status, '待办') };
+    if (prioInput.value) { props[F.priority] = { select: prioInput.value }; }
+    var cat = String(catInput.value || '').trim();
+    if (cat) { props[F.cat] = { text: cat }; }
+    if (planInput.value) { props[F.plan] = { date: planInput.value }; }
+    if (dueInput.value) { props[F.due] = { date: dueInput.value }; }
+    var desc = rtRead(descEditor);
+    if (desc) { props[F.detail] = { text: desc }; }
+
+    db.addRecord({ databaseId: DATABASE_ID, properties: props }).then(function () {
+      taskInput.value = '';
+      catInput.value = '';
+      planInput.value = todayISO();
+      dueInput.value = '';
+      prioInput.value = '';
+      if (descEditor) { descEditor.innerHTML = ''; }
+      setDescOpen(false);
+      clearDraft();
+      return refresh();
+    }).catch(function (err) {
+      console.error('[todo] 新增失败:', err);
+      showBanner('添加失败，内容已保留，请重试');
+    }).then(function () {
+      addBtn.disabled = false;
+      addBtn.textContent = '添加';
+    }).catch(function (err) {
+      console.error('[todo] 收尾失败:', err);
+      addBtn.disabled = false;
+      addBtn.textContent = '添加';
+    });
+  }
+
+  function saveDraft() {
+    try {
+      window.localStorage.setItem(DRAFT_KEY, JSON.stringify({
+        t: taskInput.value, p: prioInput.value, c: catInput.value, l: planInput.value, d: dueInput.value, x: rtRead(descEditor)
+      }));
+    } catch (e) { /* 存储不可用时静默降级 */ }
+  }
+  function scheduleDraft() {
+    if (draftTimer) { window.clearTimeout(draftTimer); }
+    draftTimer = window.setTimeout(saveDraft, 300);
+  }
+  function restoreDraft() {
+    try {
+      var raw = window.localStorage.getItem(DRAFT_KEY);
+      if (!raw) { return; }
+      var o = JSON.parse(raw);
+      if (!o) { return; }
+      if (o.t) { taskInput.value = o.t; }
+      if (o.p) { prioInput.value = o.p; }
+      if (o.c) { catInput.value = o.c; }
+      if (o.l) { planInput.value = o.l; }
+      if (o.d) { dueInput.value = o.d; }
+      if (o.x) {
+        descEditor.innerHTML = rtSanitize(o.x);
+        if (rtText(descEditor.innerHTML)) { setDescOpen(true); }
+      }
+    } catch (e) { /* 静默降级 */ }
+  }
+  function clearDraft() {
+    try { window.localStorage.removeItem(DRAFT_KEY); } catch (e) { /* 静默降级 */ }
+  }
+
+  function toggleMore(btn) {
+    var block = btn && btn.parentNode;
+    var viewEl = block ? block.querySelector('.rt-view') : null;
+    if (!viewEl) { return; }
+    var id = btn.getAttribute('data-more') || '';
+    if (String(viewEl.className).indexOf('clamp') >= 0) {
+      viewEl.className = 'rt-view';
+      EXPANDED[id] = true;
+      btn.textContent = '收起';
+    } else {
+      viewEl.className = 'rt-view clamp';
+      EXPANDED[id] = false;
+      btn.textContent = '展开';
+    }
+    rtMeasure();
+  }
+
+  function openDesc(id) {
+    var rec = findRow(id);
+    if (!rec || !descMask) { return; }
+    editId = id;
+    descTaskLabel.textContent = String(rec[F.task] || '');
+    editEditor.innerHTML = rtSanitize(rec[F.detail] || '');
+    descMask.hidden = false;
+    rtSyncBar(editBar, editEditor);
+    editEditor.focus();
+  }
+
+  function closeDesc() {
+    if (!descMask) { return; }
+    descMask.hidden = true;
+    editId = '';
+  }
+
+  function saveDesc() {
+    if (!db || !editId) { closeDesc(); return; }
+    var html = rtRead(editEditor);
+    var props = {};
+    props[F.detail] = { text: html };
+    db.updateRecord({ databaseId: DATABASE_ID, recordId: editId, properties: props }).then(function () {
+      closeDesc();
+      return refresh();
+    }).catch(function (err) {
+      console.error('[todo] 描述保存失败:', err);
+      showBanner('描述保存失败，请稍后重试');
+    });
+  }
+
+  /* ---------- 改期 ---------- */
+  function nextMonday(base) {
+    var parts = String(base).split('-');
+    var d = new Date(Number(parts[0]), Number(parts[1]) - 1, Number(parts[2]));
+    var delta = (8 - d.getDay()) % 7;
+    if (delta === 0) { delta = 7; }
+    return shiftISO(base, delta);
+  }
+  function openPlan(id) {
+    var rec = findRow(id);
+    if (!rec || !planMask) { return; }
+    planId = id;
+    planTaskLabel.textContent = String(rec[F.task] || '');
+    planPick.value = isoDate(rec[F.plan]) || '';
+    planMask.hidden = false;
+  }
+  function closePlan() {
+    if (!planMask) { return; }
+    planMask.hidden = true;
+    planId = '';
+  }
+  function savePlan(value) {
+    if (!value) { showBanner('先选一个日期'); return; }
+    if (!db || !planId) { closePlan(); return; }
+    var props = {};
+    props[F.plan] = { date: value };
+    var id = planId;
+    closePlan();
+    db.updateRecord({ databaseId: DATABASE_ID, recordId: id, properties: props }).then(function () {
+      return refresh();
+    }).catch(function (err) {
+      console.error('[todo] 改期失败:', err);
+      showBanner('改期失败，请稍后重试');
+    });
+  }
+
+  function bindEvents() {
+    addForm.addEventListener('submit', function (e) {
+      e.preventDefault();
+      addTask();
+    });
+    taskInput.addEventListener('input', scheduleDraft);
+    catInput.addEventListener('input', scheduleDraft);
+    planInput.addEventListener('change', scheduleDraft);
+    dueInput.addEventListener('change', scheduleDraft);
+    prioInput.addEventListener('change', scheduleDraft);
+
+    viewTabs.addEventListener('click', function (e) {
+      var t = e.target && e.target.closest ? e.target.closest('[data-view]') : null;
+      if (!t) { return; }
+      view.todayOnly = t.getAttribute('data-view') === 'today';
+      saveViewPref();
+      syncViewTabs();
+      render();
+    });
+    if (undoBtn) { undoBtn.addEventListener('click', undoDelete); }
+
+    searchInput.addEventListener('input', function () {
+      view.q = String(searchInput.value || '').trim();
+      render();
+    });
+    hideDone.addEventListener('change', function () {
+      view.hideDone = !!hideDone.checked;
+      render();
+    });
+    chipsEl.addEventListener('click', function (e) {
+      var target = e.target;
+      if (!target || !target.getAttribute || target.getAttribute('data-cat') === null) { return; }
+      view.cat = target.getAttribute('data-cat') || '';
+      render();
+    });
+
+    boardEl.addEventListener('click', function (e) {
+      var moreBtn = e.target && e.target.closest ? e.target.closest('[data-more]') : null;
+      if (moreBtn) {
+        toggleMore(moreBtn);
+        return;
+      }
+      var btn = findAct(e.target);
+      if (!btn) { return; }
+      var card = findCard(btn);
+      if (!card) { return; }
+      var id = card.getAttribute('data-id');
+      var act = btn.getAttribute('data-act');
+      if (act === 'start') { setStatus(id, '进行中'); }
+      else if (act === 'done') { setStatus(id, '已完成'); }
+      else if (act === 'reopen') { setStatus(id, '待办'); }
+      else if (act === 'hold') { setStatus(id, '搁置'); }
+      else if (act === 'desc') { openDesc(id); }
+      else if (act === 'plan') { openPlan(id); }
+      else if (act === 'del') { removeRecord(id); }
+    });
+
+    descToggle.addEventListener('click', function () {
+      setDescOpen(rtWrap.hidden);
+    });
+    descEditor.addEventListener('input', scheduleDraft);
+    descEditor.addEventListener('keydown', function (e) {
+      if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
+        e.preventDefault();
+        addTask();
+      }
+    });
+
+    if (descMask) {
+      descMask.addEventListener('click', function (e) {
+        if (e.target === descMask) { closeDesc(); }
+      });
+      document.getElementById('descCancel').addEventListener('click', closeDesc);
+      document.getElementById('descSave').addEventListener('click', saveDesc);
+      editEditor.addEventListener('keydown', function (e) {
+        if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
+          e.preventDefault();
+          saveDesc();
+        }
+      });
+    }
+    if (planMask) {
+      planMask.addEventListener('click', function (e) {
+        if (e.target === planMask) { closePlan(); }
+      });
+      document.getElementById('planCancel').addEventListener('click', closePlan);
+      document.getElementById('planSave').addEventListener('click', function () {
+        savePlan(planPick.value);
+      });
+      planQuick.addEventListener('click', function (e) {
+        var b = e.target && e.target.closest ? e.target.closest('[data-plan]') : null;
+        if (!b) { return; }
+        var kind = b.getAttribute('data-plan');
+        var base = todayISO();
+        var value = kind === 'today' ? base
+          : kind === 'tomorrow' ? shiftISO(base, 1)
+          : kind === 'plus3' ? shiftISO(base, 3)
+          : nextMonday(base);
+        savePlan(value);
+      });
+    }
+    document.addEventListener('keydown', function (e) {
+      if (e.key === 'Escape') {
+        if (descMask && !descMask.hidden) { closeDesc(); }
+        if (planMask && !planMask.hidden) { closePlan(); }
+        return;
+      }
+      var t = e.target;
+      var typing = t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.isContentEditable ||
+        String(t.tagName) === 'SELECT');
+      if (typing || e.ctrlKey || e.metaKey || e.altKey) { return; }
+      if (descMask && !descMask.hidden) { return; }
+      if (planMask && !planMask.hidden) { return; }
+      if (e.key === 'n' || e.key === 'N') {
+        e.preventDefault();
+        taskInput.focus();
+      } else if (e.key === '/') {
+        e.preventDefault();
+        searchInput.focus();
+      }
+    });
+  }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', boot);
+  } else {
+    boot();
+  }
+})();
+</script>
+</body>
+</html>
