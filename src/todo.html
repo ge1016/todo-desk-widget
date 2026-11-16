@@ -17,8 +17,24 @@
     --card: rgba(255, 255, 255, .74);
     --focus: #0b57d0;
     --target: 24px;
+    /* 设计令牌：统一圆角 / 间距 / 动效时长，供新增样式复用 */
+    --r-sm: 8px;
+    --r-md: 12px;
+    --r-lg: 17px;
+    --sp-1: 6px;
+    --sp-2: 10px;
+    --sp-3: 14px;
+    --dur-fast: .14s;
+    --dur-mid: .16s;
   }
   @media (pointer: coarse) { :root { --target: 44px; } }
+  /* 尊重系统「减少动态效果」：全局压平过渡与动画，紧迫度环在 no-preference 下才转 */
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after {
+      animation-duration: .01ms !important; animation-iteration-count: 1 !important;
+      transition-duration: .01ms !important; scroll-behavior: auto !important;
+    }
+  }
   html, body { margin: 0; padding: 0; }
   body {
     font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
@@ -153,9 +169,22 @@
   }
   .lead-btn:hover { background: rgba(47, 107, 255, .16); }
   .chev { font-size: 11px; color: var(--ink3); width: 14px; text-align: center; }
-  .mod-body { display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 9px; align-items: start; }
-  .loading { text-align: center; padding: 46px 0; font-size: 13px; color: var(--ink3); }
-  .empty { font-size: 12.5px; color: var(--ink3); text-align: center; padding: 14px 8px; border: 1px dashed var(--line); border-radius: 11px; grid-column: 1 / -1; }
+  /* 隔离每个模块的布局计算，长列表重绘不触发整页回流；不用 paint 以免裁掉卡片 hover 阴影 */
+  .mod-body { display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 9px; align-items: start; contain: layout style; }
+  .loading { padding: 20px 0 40px; }
+  .loading-txt { display: block; text-align: center; font-size: 12.5px; color: var(--ink3); margin-bottom: 14px; }
+  .skel-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 9px; }
+  .skel-card {
+    height: 84px; border-radius: 13px; border: 1px solid var(--line);
+    background: linear-gradient(100deg, rgba(255, 255, 255, .5) 30%, rgba(255, 255, 255, .92) 50%, rgba(255, 255, 255, .5) 70%);
+    background-size: 220% 100%; animation: skel-shift 1.4s ease-in-out infinite;
+  }
+  @keyframes skel-shift { from { background-position-x: 180%; } to { background-position-x: -80%; } }
+  /* 空状态：轻量插图 + 主文案 + 情境副文案，区分「筛选无结果 / 模块为空 / 今天没安排」 */
+  .empty { grid-column: 1 / -1; text-align: center; padding: 20px 12px; border: 1px dashed var(--line); border-radius: 12px; }
+  .empty-ico { display: block; font-size: 22px; line-height: 1; margin-bottom: 6px; opacity: .55; }
+  .empty-main { display: block; font-size: 12.5px; color: var(--ink2); }
+  .empty-sub { display: block; font-size: 11.5px; color: var(--ink3); margin-top: 3px; }
 
   /* ---------- 卡片 ---------- */
   .card {
@@ -163,6 +192,8 @@
     box-shadow: 0 2px 8px rgba(20, 50, 110, .05); transition: box-shadow .16s, transform .16s, border-color .16s;
   }
   .card:hover { box-shadow: 0 8px 20px rgba(20, 50, 110, .1); transform: translateY(-1px); border-color: rgba(47, 107, 255, .22); }
+  /* 逾期卡左侧红色锚点：仅视觉标记，状态含义仍由「已逾期 / 逾期 N 天」文字承载 */
+  .card.overdue { border-left: 3px solid var(--red); padding-left: 10px; }
   .card-title { font-size: 13.8px; line-height: 1.5; font-weight: 560; overflow-wrap: anywhere; }
   .card.done .card-title { color: var(--ink3); text-decoration: line-through; }
   .meta { display: flex; gap: 5px; flex-wrap: wrap; margin-top: 7px; }
@@ -331,7 +362,10 @@
     display: flex; align-items: center; gap: 10px; max-width: min(520px, calc(100vw - 32px));
     background: rgba(22, 32, 46, .94); color: #fff; font-size: 13px;
     padding: 10px 12px 10px 16px; border-radius: 12px; box-shadow: 0 10px 26px rgba(16, 30, 60, .22);
+    animation: toast-in var(--dur-mid) ease-out;
   }
+  .toast::before { content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: 3px; border-radius: 12px 0 0 12px; background: var(--brand); }
+  @keyframes toast-in { from { opacity: 0; transform: translate(-50%, 8px); } to { opacity: 1; transform: translate(-50%, 0); } }
   .toast .toast-text { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .toast button {
     font-family: inherit; font-size: 12.5px; font-weight: 620; color: #fff; cursor: pointer;
@@ -383,7 +417,7 @@
 </style>
 </head>
 <body>
-<div class="page">
+<main class="page">
   <header class="hero">
     <div>
       <h1>我的待办台</h1>
@@ -449,16 +483,19 @@
       <div class="mod-head" data-fold="hold"><span class="mod-bar b-hold"></span><h2>搁置</h2><span class="mod-desc">先不做，但留着有据可查</span><span class="count" data-count="hold" data-sp-bindable="database" data-sp-database-id="YOUR_DATABASE_ID">0</span><span class="chev">▸</span></div>
       <div class="mod-body" data-list="hold"></div>
     </div>
-    <div class="loading" id="loading">正在加载你的待办…</div>
+    <div class="loading" id="loading" role="status" aria-live="polite">
+      <span class="loading-txt">正在加载你的待办…</span>
+      <div class="skel-grid" aria-hidden="true"><div class="skel-card"></div><div class="skel-card"></div><div class="skel-card"></div></div>
+    </div>
   </section>
 
-  <div class="banner" id="banner" hidden></div>
-  <div class="toast" id="toast" hidden>
+  <div class="banner" id="banner" role="status" aria-live="polite" hidden></div>
+  <div class="toast" id="toast" role="status" aria-live="polite" hidden>
     <span class="toast-text" id="toastText"></span>
     <button type="button" id="toastBtn">撤销</button>
-    <button type="button" class="toast-x" id="toastClose" title="关闭">×</button>
+    <button type="button" class="toast-x" id="toastClose" title="关闭" aria-label="关闭提示">×</button>
   </div>
-</div>
+</main>
 
 <button type="button" class="fab" id="fabAdd" title="新建待办 (N)">＋</button>
 
@@ -617,11 +654,13 @@
     if (field === F.priority) { return PRIO_ID[text] || text; }
     return text;
   }
+  var bannerTimer = null;
   function showBanner(msg) {
     if (!bannerEl) { return; }
+    if (bannerTimer) { window.clearTimeout(bannerTimer); }
     bannerEl.textContent = msg;
     bannerEl.hidden = false;
-    window.setTimeout(function () { bannerEl.hidden = true; }, 3000);
+    bannerTimer = window.setTimeout(function () { bannerEl.hidden = true; bannerTimer = null; }, 3000);
   }
   function shortName(s) {
     var t = String(s === undefined || s === null ? '' : s);
@@ -856,24 +895,45 @@
 
   /* ---------- 通用提示条：删除撤销 / 完成后衍生 ---------- */
   var DELAY_MS = 8000;
+  var toastRemain = DELAY_MS;   /* 剩余可见时长：悬停 / 键盘聚焦时暂停倒数 */
+  var toastStartedAt = 0;
+  var toastOnExpire = null;
   function hideToast() {
     if (toastTimer) { window.clearTimeout(toastTimer); toastTimer = null; }
     if (toastEl) { toastEl.hidden = true; }
     toastHandler = null;
+    toastOnExpire = null;
+  }
+  function runToastTimer() {
+    if (toastTimer) { window.clearTimeout(toastTimer); }
+    toastStartedAt = Date.now();
+    toastTimer = window.setTimeout(function () {
+      toastTimer = null;
+      var fn = toastOnExpire;
+      hideToast();
+      if (fn) { fn(); }
+    }, toastRemain);
+  }
+  function pauseToast() {
+    if (!toastTimer) { return; }
+    window.clearTimeout(toastTimer);
+    toastTimer = null;
+    toastRemain = Math.max(0, toastRemain - (Date.now() - toastStartedAt));
+  }
+  function resumeToast() {
+    if (!toastEl || toastEl.hidden || toastTimer || toastRemain <= 0) { return; }
+    runToastTimer();
   }
   function showToast(text, label, handler, ms, onExpire) {
     if (!toastEl || !toastText || !toastBtn) { return; }
-    if (toastTimer) { window.clearTimeout(toastTimer); }
+    toastRemain = ms || DELAY_MS;
+    toastOnExpire = onExpire || null;
     toastText.textContent = text;
     toastBtn.textContent = label;
     toastBtn.hidden = !handler;
     toastHandler = handler || null;
     toastEl.hidden = false;
-    toastTimer = window.setTimeout(function () {
-      toastTimer = null;
-      hideToast();
-      if (onExpire) { onExpire(); }
-    }, ms || DELAY_MS);
+    runToastTimer();
   }
   /* 8 秒反悔期结束后，只打「删除时间」标记移入回收区，不物理删除 */
   function flushDelete() {
@@ -942,12 +1002,22 @@
     return out.innerHTML;
   }
   var rtProbe = null;
+  var rtTextCache = {};   /* 有界缓存：同一段详情在筛选/排序/搜索时被反复读取，避免重复解析 */
+  var rtTextCacheKeys = [];
+  var RT_CACHE_MAX = 400;
   function rtText(html) {
     var s = String(html === undefined || html === null ? '' : html);
     if (!s) { return ''; }
+    if (Object.prototype.hasOwnProperty.call(rtTextCache, s)) { return rtTextCache[s]; }
     if (!rtProbe) { rtProbe = document.createElement('div'); }
     rtProbe.innerHTML = rtSanitize(s);
-    return String(rtProbe.textContent || '').replace(/\s+/g, ' ').trim();
+    var out = String(rtProbe.textContent || '').replace(/\s+/g, ' ').trim();
+    if (rtTextCacheKeys.length >= RT_CACHE_MAX) {
+      delete rtTextCache[rtTextCacheKeys.shift()];
+    }
+    rtTextCache[s] = out;
+    rtTextCacheKeys.push(s);
+    return out;
   }
   function rtRead(editor) {
     if (!editor) { return ''; }
@@ -1008,6 +1078,19 @@
     return n;
   }
 
+  /* ---------- 弹层焦点归位：关闭后回到触发它的控件，避免键盘焦点丢失 ---------- */
+  var lastFocus = null;
+  function rememberFocus() {
+    var a = document.activeElement;
+    lastFocus = (a && a !== document.body && a.focus) ? a : null;
+  }
+  function restoreFocus() {
+    if (lastFocus && lastFocus.focus && document.contains(lastFocus)) {
+      try { lastFocus.focus(); } catch (e) { /* 元素可能已随重绘移除 */ }
+    }
+    lastFocus = null;
+  }
+
   /* ---------- 悬浮添加面板 ---------- */
   function clearAddSource() {
     addSource = '';
@@ -1016,6 +1099,7 @@
   }
   function openAdd(sourceId) {
     if (!addMask) { return; }
+    if (addMask.hidden) { rememberFocus(); }
     clearAddSource();
     var rec = sourceId ? findRow(sourceId) : null;
     if (rec) {
@@ -1032,6 +1116,7 @@
     if (!addMask) { return; }
     addMask.hidden = true;
     scheduleDraft();
+    restoreFocus();
   }
 
   function boot() {
@@ -1316,7 +1401,7 @@
       var chev = head ? head.querySelector('.chev') : null;
       if (chev) { chev.textContent = folded ? '▸' : '▾'; }
       if (!list.length) {
-        body.appendChild(el('div', 'empty', view.todayOnly ? '今天没有安排 · 切到「全部」查看' : '暂无任务'));
+        body.appendChild(buildEmpty(key));
         continue;
       }
       for (var k = 0; k < list.length; k++) {
@@ -1325,6 +1410,38 @@
     }
 
     if (window.requestAnimationFrame) { window.requestAnimationFrame(rtMeasure); } else { rtMeasure(); }
+  }
+
+  /* 空状态：按当前情境给出可行动的提示，而不是干巴巴一句「暂无任务」 */
+  function buildEmpty(key) {
+    var main = '暂无任务', sub = '', ico = '◇';
+    if (view.q) {
+      main = '没有匹配「' + shortName(view.q) + '」的任务';
+      sub = '换个关键词，或清空搜索框'; ico = '⌕';
+    } else if (view.cat) {
+      main = '「' + shortName(view.cat) + '」分类下暂无任务';
+      sub = '点「不限分类」查看全部'; ico = '◈';
+    } else if (view.todayOnly || view.focus === 'today') {
+      main = '今天没有安排';
+      sub = '切到「全部」查看其它任务'; ico = '☀';
+    } else if (view.focus === 'overdue') {
+      main = '没有逾期任务'; sub = '节奏保持得不错'; ico = '✓';
+    } else if (key === 'focus') {
+      main = '今天没有紧急任务'; sub = '逾期、今天到期与临期的任务会出现在这里'; ico = '◎';
+    } else if (key === 'done') {
+      main = '还没有完成的任务'; sub = '完成一件事后，可点「衍生」记下后续'; ico = '✓';
+    } else if (key === 'hold') {
+      main = '没有搁置的任务'; ico = '◇';
+    } else if (key === 'doing') {
+      main = '没有进行中的任务'; sub = '在待办池点「开始」即可推进'; ico = '▷';
+    }
+    var box = el('div', 'empty');
+    var i = el('span', 'empty-ico', ico);
+    i.setAttribute('aria-hidden', 'true');
+    box.appendChild(i);
+    box.appendChild(el('span', 'empty-main', main));
+    if (sub) { box.appendChild(el('span', 'empty-sub', sub)); }
+    return box;
   }
 
   function rtMeasure() {
@@ -1372,7 +1489,7 @@
   function buildCard(r, today) {
     today = today || todayISO();
     var st = statusText(r[F.status]) || '待办';
-    var card = el('div', 'card' + (st === '已完成' ? ' done' : ''));
+    var card = el('div', 'card' + (st === '已完成' ? ' done' : '') + (isOverdue(r, st, today) ? ' overdue' : ''));
     var cardId = r._id || '';
     var cardMode = dueModeFor(cardId);
     var cardSolo = !!PER_MODE[cardId];
@@ -1677,6 +1794,7 @@
       clearAddSource();
       clearDraft();
       addMask.hidden = true;
+      restoreFocus();
       view.trash = false;
       hideToast();
       return refresh();
@@ -1743,6 +1861,7 @@
   function openDesc(id) {
     var rec = findRow(id);
     if (!rec || !descMask) { return; }
+    if (descMask.hidden) { rememberFocus(); }
     editId = id;
     descTaskLabel.textContent = String(rec[F.task] || '');
     editEditor.innerHTML = rtSanitize(rec[F.detail] || '');
@@ -1754,6 +1873,7 @@
     if (!descMask) { return; }
     descMask.hidden = true;
     editId = '';
+    restoreFocus();
   }
   function saveDesc() {
     if (!db || !editId) { closeDesc(); return; }
@@ -1780,6 +1900,7 @@
   function openPlan(id) {
     var rec = findRow(id);
     if (!rec || !planMask) { return; }
+    if (planMask.hidden) { rememberFocus(); }
     planId = id;
     planTaskLabel.textContent = String(rec[F.task] || '');
     planPick.value = isoDate(rec[F.plan]) || '';
@@ -1789,6 +1910,7 @@
     if (!planMask) { return; }
     planMask.hidden = true;
     planId = '';
+    restoreFocus();
   }
   function savePlan(value) {
     if (!value) { showBanner('先选一个日期'); return; }
@@ -1884,6 +2006,15 @@
       });
     }
     if (toastClose) { toastClose.addEventListener('click', hideToast); }
+    /* 鼠标悬停或键盘焦点进入提示条时暂停倒计时，离开后按剩余时间续上 */
+    if (toastEl) {
+      toastEl.addEventListener('mouseenter', pauseToast);
+      toastEl.addEventListener('mouseleave', resumeToast);
+      toastEl.addEventListener('focusin', pauseToast);
+      toastEl.addEventListener('focusout', function (e) {
+        if (!toastEl.contains(e.relatedTarget)) { resumeToast(); }
+      });
+    }
 
     searchInput.addEventListener('input', function () {
       view.q = String(searchInput.value || '').trim();

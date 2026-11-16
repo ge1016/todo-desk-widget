@@ -39,6 +39,28 @@ const probe = `(async function () {
     ck('deleted_records_hidden_from_board', !$('.card[data-id="r9"]') && !$('.card[data-id="r10"]'));
     ck('add_mask_initially_hidden', $('#addMask').hidden);
 
+    /* 1a. 整体优化：语义结构 / 可访问公告 / 视觉锚点 / 骨架屏 */
+    ck('page_uses_main_landmark', !!$('main.page') && !$('div.page'));
+    ck('toast_is_status_region', !!$('#toast') && $('#toast').getAttribute('role') === 'status' &&
+      $('#toast').getAttribute('aria-live') === 'polite');
+    ck('banner_is_status_region', !!$('#banner') && $('#banner').getAttribute('role') === 'status' &&
+      $('#banner').getAttribute('aria-live') === 'polite');
+    ck('toast_close_has_label', !!$('#toastClose') && !!$('#toastClose').getAttribute('aria-label'));
+    ck('loading_has_skeleton', !!$('#loading .skel-grid') && !!$('#loading .loading-txt'));
+    ck('loading_is_status_region', $('#loading').getAttribute('role') === 'status');
+    ck('overdue_card_has_anchor_class', (function () {
+      var c = $('.card[data-id="r3"]'); /* r3 逾期 */
+      return !!c && c.classList.contains('overdue');
+    })());
+    ck('non_overdue_card_no_anchor', (function () {
+      var c = $('.card[data-id="r1"]');
+      return !!c && !c.classList.contains('overdue');
+    })());
+    ck('mod_body_has_containment', (function () {
+      var b = $('[data-list="focus"]');
+      return !!b && getComputedStyle(b).contain.indexOf('layout') >= 0;
+    })());
+
     /* 1b. 开始日期文案统一，且已过状态不只靠颜色表达 */
     ck('plan_badge_labeled_start', !!badge('r1', 'plan') && badge('r1', 'plan').textContent.indexOf('开始') === 0);
     ck('plan_overdue_labeled_start', !!badge('r7', 'plan') && badge('r7', 'plan').textContent.indexOf('开始 ') === 0);
@@ -132,6 +154,22 @@ const probe = `(async function () {
     $('#searchInput').dispatchEvent(new Event('input', { bubbles: true }));
     await sleep(120);
     ck('chips_survive_search', chipCount() === chipsBefore);
+    /* 空状态分级：搜索无结果给出关键词提示与可行动副文案 */
+    $('#searchInput').value = '绝不存在的关键词zzz';
+    $('#searchInput').dispatchEvent(new Event('input', { bubbles: true }));
+    await sleep(120);
+    ck('empty_state_on_no_search_result', (function () {
+      var e = $('[data-list="focus"] .empty');
+      return !!e && !!e.querySelector('.empty-ico') && !!e.querySelector('.empty-main') && !!e.querySelector('.empty-sub');
+    })());
+    ck('empty_search_text_is_actionable', (function () {
+      var e = $('[data-list="focus"] .empty-main');
+      return !!e && e.textContent.indexOf('没有匹配') >= 0;
+    })());
+    ck('empty_icon_hidden_from_at', (function () {
+      var i = $('[data-list="focus"] .empty-ico');
+      return !!i && i.getAttribute('aria-hidden') === 'true';
+    })());
     $('#searchInput').value = '';
     $('#searchInput').dispatchEvent(new Event('input', { bubbles: true }));
     await sleep(120);
