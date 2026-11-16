@@ -115,6 +115,30 @@ const probe = `(async function () {
     click('#coreTabs [data-focus="overdue"]');
     ck('filter_cleared_all_modules', !$('[data-mod="doing"]').hidden);
 
+    /* 3b. 分类筛选后 tag 必须仍在，且能点回总览 */
+    function chipCount() { return document.querySelectorAll('#catChips [data-cat]').length; }
+    var chipsBefore = chipCount();
+    ck('chips_initially_present', chipsBefore >= 2);
+    click('#catChips [data-cat="AI"]');
+    ck('chips_survive_category_filter', chipCount() === chipsBefore);
+    ck('chip_all_present_while_filtered', !!$('#catChips [data-cat=""]'));
+    ck('filtered_chip_highlighted', $('#catChips [data-cat="AI"]').classList.contains('on'));
+    ck('category_filter_applied', document.querySelectorAll('.card').length < 9);
+    click('#catChips [data-cat=""]');
+    ck('chip_all_restores_overview', document.querySelectorAll('.card').length === 9);
+    ck('chip_all_highlighted_after_reset', $('#catChips [data-cat=""]').classList.contains('on'));
+    /* 搜索与今天视图同样不能让 tag 消失 */
+    $('#searchInput').value = '任务A';
+    $('#searchInput').dispatchEvent(new Event('input', { bubbles: true }));
+    await sleep(120);
+    ck('chips_survive_search', chipCount() === chipsBefore);
+    $('#searchInput').value = '';
+    $('#searchInput').dispatchEvent(new Event('input', { bubbles: true }));
+    await sleep(120);
+    click('#viewTabs [data-view="today"]');
+    ck('chips_survive_today_view', chipCount() === chipsBefore);
+    click('#viewTabs [data-view="all"]');
+
     /* 4. 模块折叠 */
     ck('done_body_folded_initially', $('[data-list="done"]').hidden);
     click('[data-fold="done"]');

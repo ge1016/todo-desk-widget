@@ -1249,13 +1249,14 @@
         if (isFocus(r, st, today)) { focusCount++; }
       }
       if (isOverdue(r, st, today)) { overdueCount++; }
+      /* 分类集合基于所有未删除任务，不受当前分类/搜索/视图筛选影响，否则筛选后 tag 会消失、回不去 */
+      if (r[F.cat]) { cats[String(r[F.cat])] = true; }
       if (!matches(r, today)) { continue; }
       if (st === '已完成') { groups.done.push(r); }
       else if (st === '搁置') { groups.hold.push(r); }
       else if (isFocus(r, st, today)) { groups.focus.push(r); }
       else if (st === '进行中') { groups.doing.push(r); }
       else { groups.todo.push(r); }
-      if (r[F.cat]) { cats[String(r[F.cat])] = true; }
     }
 
     setKpi('focus', focusCount);
@@ -1327,8 +1328,9 @@
     while (chipsEl.firstChild) { chipsEl.removeChild(chipsEl.firstChild); }
     var names = [];
     for (var c in cats) { if (Object.prototype.hasOwnProperty.call(cats, c)) { names.push(c); } }
-    if (names.length < 2) { return; }
     names.sort();
+    /* 只要处于筛选态就保留「不限分类」，即使只剩一个分类或目标分类已被删掉，也能点回总览 */
+    if (names.length < 2 && !view.cat) { return; }
     var all = el('button', 'chip' + (view.cat === '' ? ' on' : ''), '不限分类');
     all.type = 'button';
     all.setAttribute('data-cat', '');
