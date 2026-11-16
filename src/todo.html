@@ -121,6 +121,7 @@
   .badge.over { background: rgba(229, 72, 77, .11); color: var(--red); }
   .badge.plan { background: rgba(47, 107, 255, .1); color: #2456c9; }
   .badge.plan.today { background: rgba(47, 107, 255, .17); color: #1f4ec2; font-weight: 600; }
+  .badge.plan.over, .badge.plan.over:hover { background: rgba(229, 72, 77, .11); color: var(--red); }
   .badge.src { background: rgba(126, 92, 196, .1); color: #6a4cae; }
   .badge.child { background: rgba(18, 163, 127, .12); color: #0b7c60; }
   .badge.date-tog { cursor: pointer; border: 1px solid transparent; }
@@ -396,7 +397,7 @@
       <select id="prioInput" name="priority"><option value="">优先级</option></select>
       <input id="catInput" name="category" type="text" placeholder="分类，如 企微/AI" maxlength="24">
       <div class="date-row">
-        <label class="date-field"><span>计划</span><input id="planInput" name="plan" type="date" title="我打算哪天做"></label>
+        <label class="date-field"><span>开始</span><input id="planInput" name="plan" type="date" title="从哪天开始做"></label>
         <label class="date-field"><span>截止</span><input id="dueInput" name="due" type="date" title="最晚哪天要交"></label>
       </div>
       <button type="button" id="descToggle">＋ 补充描述（可加粗、分条）</button>
@@ -443,7 +444,7 @@
 
 <div class="mask" id="planMask" hidden>
   <div class="sheet plan-sheet">
-    <div class="sheet-top"><h3>安排到哪一天</h3><button type="button" class="sheet-x" id="planClose" title="关闭">×</button></div>
+    <div class="sheet-top"><h3>设置开始日期</h3><button type="button" class="sheet-x" id="planClose" title="关闭">×</button></div>
     <div class="task-label" id="planTaskLabel"></div>
     <div class="plan-quick" id="planQuick">
       <button type="button" data-plan="today">今天</button>
@@ -451,7 +452,7 @@
       <button type="button" data-plan="plus3">3 天后</button>
       <button type="button" data-plan="nextmon">下周一</button>
     </div>
-    <label class="date-field"><span>计划日期</span><input type="date" id="planPick"></label>
+    <label class="date-field"><span>开始日期</span><input type="date" id="planPick"></label>
     <div class="sheet-foot">
       <button type="button" class="btn-ghost" id="planCancel">取消</button>
       <button type="button" class="btn-solid" id="planSave">保存</button>
@@ -572,9 +573,10 @@
     if (kind === 'plan') {
       var plan = isoDate(r[F.plan]);
       if (!plan) { return ''; }
-      if (plan === today) { return '今天做'; }
-      if (plan < today && st !== '已完成') { return '顺延' + plan.slice(5); }
-      return dateLabel(plan, today, '计划', st !== '已完成', mode);
+      if (plan === today) { return '今天开始'; }
+      /* 开始日已过：日期仍按「开始」标注，状态用可见文字表达，颜色只作辅助 */
+      if (plan < today && st !== '已完成') { return '开始 ' + plan.slice(5) + ' · 已过'; }
+      return dateLabel(plan, today, '开始', st !== '已完成', mode);
     }
     var due = isoDate(r[F.due]);
     if (!due) { return ''; }
@@ -1275,7 +1277,8 @@
     var plan = isoDate(r[F.plan]);
     if (plan) {
       var planToday = plan === today;
-      var planBadge = bind(el('span', 'badge plan' + (planToday ? ' today' : '') + togCls,
+      var planOver = plan < today && st !== '已完成';
+      var planBadge = bind(el('span', 'badge plan' + (planToday ? ' today' : '') + (planOver ? ' over' : '') + togCls,
         dateBadgeText('plan', r, st, today, cardMode)));
       if (canToggle) {
         planBadge.setAttribute('data-date-toggle', '1');

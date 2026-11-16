@@ -38,6 +38,20 @@ const probe = `(async function () {
     ck('trash_count_2', $('#trashCount').textContent === '2');
     ck('deleted_records_hidden_from_board', !$('.card[data-id="r9"]') && !$('.card[data-id="r10"]'));
     ck('add_mask_initially_hidden', $('#addMask').hidden);
+
+    /* 1b. 开始日期文案统一，且已过状态不只靠颜色表达 */
+    ck('plan_badge_labeled_start', !!badge('r1', 'plan') && badge('r1', 'plan').textContent.indexOf('开始') === 0);
+    ck('plan_overdue_labeled_start', !!badge('r7', 'plan') && badge('r7', 'plan').textContent.indexOf('开始 ') === 0);
+    ck('plan_overdue_has_visible_state', !!badge('r7', 'plan') && badge('r7', 'plan').textContent.indexOf('已过') >= 0);
+    ck('plan_overdue_has_red_class', !!badge('r7', 'plan') && badge('r7', 'plan').classList.contains('over'));
+    ck('plan_overdue_red_style', (function () {
+      var a = badge('r7', 'plan'), b = badge('r1', 'plan');
+      return !!a && !!b && getComputedStyle(a).color !== getComputedStyle(b).color;
+    })());
+    ck('no_shunyan_wording', document.body.textContent.indexOf('顺延') < 0);
+    ck('add_form_label_says_start', !!$('#addForm .date-field span') && $('#addForm .date-field span').textContent === '开始');
+    ck('plan_dialog_label_says_start', !!$('#planMask .date-field span') && $('#planMask .date-field span').textContent === '开始日期');
+    ck('plan_dialog_title_says_start', !!$('#planMask h3') && $('#planMask h3').textContent === '设置开始日期');
     ck('initial_cards_8', cards() === 8);
     ck('focus_module_4', inMod('focus') === 4);
     ck('doing_module_1', inMod('doing') === 1);
