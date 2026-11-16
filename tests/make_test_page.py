@@ -86,6 +86,7 @@ try {
   window.localStorage.removeItem('todo_due_mode_v1');
   window.localStorage.removeItem('todo_due_mode_per_v1');
   window.localStorage.removeItem('todo_focus_lead_v1');
+  window.localStorage.removeItem('todo_urgency_motion_v1');
   window.localStorage.removeItem('todo_draft_v1');
 } catch (e) {}
 var __rows = ROWS;
@@ -102,8 +103,10 @@ window.__SMART_PAGE__ = {
       window.__calls.push(['update', a]);
       var p = a.properties || {};
       var i = __findRow(a.recordId);
-      /* 只同步「删除时间」字段，其余保持原样，避免影响已有断言 */
+      /* 同步会改变统计的字段，其余保持原样，避免影响已有断言 */
       if (i >= 0 && p['删除时间']) { __rows[i]['删除时间'] = p['删除时间'].text; }
+      if (i >= 0 && p['状态']) { __rows[i]['状态'] = p['状态'].select; }
+      if (i >= 0 && p['完成日期']) { __rows[i]['完成日期'] = p['完成日期'].date; }
       return Promise.resolve({});
     },
     deleteRecord: function (a) {

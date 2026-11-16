@@ -61,6 +61,35 @@ const probe = `(async function () {
     ck('doing_past_plan_in_doing_module', !!$('[data-list="doing"] .card[data-id="r11"]'));
     ck('doing_past_plan_not_in_focus', !$('[data-list="focus"] .card[data-id="r11"]'));
     ck('no_shunyan_wording', document.body.textContent.indexOf('顺延') < 0);
+
+    /* 1c. 完成率已移除，改为紧迫度：进行 2 + 临期 3 = 5 → 高 */
+    ck('no_completion_rate', document.body.textContent.indexOf('完成率') < 0 && !$('[data-kpi="rate"]'));
+    ck('urgency_tab_exists', !!$('#urgencyTab'));
+    ck('urgency_kpi_shows_level', !!$('#urgencyNum') && ['低', '中', '高'].indexOf($('#urgencyNum').textContent) >= 0);
+    ck('urgency_initial_high', $('#urgencyTab').getAttribute('data-level') === 'high');
+    ck('urgency_detail_counts', !!$('#urgencyDetail') && $('#urgencyDetail').textContent.indexOf('进行 2 · 临期 3') >= 0);
+    ck('urgency_svg_present', !!$('#urgencyTab .u-arc') && !!$('#urgencyTab .u-core'));
+    ck('urgency_pause_button', !!$('#urgencyPause') && $('#urgencyPause').textContent === '⏸');
+    ck('urgency_arc_animates_or_reduced', (function () {
+      var arc = $('#urgencyTab .u-arc');
+      if (!arc) { return false; }
+      var reduced = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+      return reduced || getComputedStyle(arc).animationName.indexOf('u-spin') >= 0;
+    })());
+    ck('urgency_speed_scales_by_level', (function () {
+      var t = $('#urgencyTab');
+      function spin(l) { t.setAttribute('data-level', l); return parseFloat(getComputedStyle(t).getPropertyValue('--u-spin')); }
+      var lo = spin('low'), mid = spin('medium'), hi = spin('high');
+      t.setAttribute('data-level', 'high');
+      return lo > mid && mid > hi;
+    })());
+    ck('urgency_color_differs_by_level', (function () {
+      var t = $('#urgencyTab');
+      function color(l) { t.setAttribute('data-level', l); return getComputedStyle(t).getPropertyValue('--u-color').trim(); }
+      var lo = color('low'), mid = color('medium'), hi = color('high');
+      t.setAttribute('data-level', 'high');
+      return lo !== mid && mid !== hi && lo !== hi;
+    })());
     ck('add_form_label_says_start', !!$('#addForm .date-field span') && $('#addForm .date-field span').textContent === '开始');
     ck('plan_dialog_label_says_start', !!$('#planMask .date-field span') && $('#planMask .date-field span').textContent === '开始日期');
     ck('plan_dialog_title_says_start', !!$('#planMask h3') && $('#planMask h3').textContent === '设置开始日期');
@@ -261,6 +290,31 @@ const probe = `(async function () {
     ck('soft_delete_target_is_r6', marked.length === markedBefore + 1 && marked[marked.length - 1][1].recordId === 'r6');
     ck('soft_delete_never_hard_deletes', calls('delete').length === purgeDeletes);
     ck('trash_count_after_soft_delete', $('#trashCount').textContent === '1');
+
+    /* 12. 紧迫度随数据实时切换：完成临期 / 进行中任务后逐级降档 */
+    var lvStart = $('#urgencyTab').getAttribute('data-level');
+    var c3 = $('.card[data-id="r3"] [data-act="done"]');
+    if (c3) { c3.click(); await sleep(450); }
+    var lvMid = $('#urgencyTab').getAttribute('data-level');
+    var c8 = $('.card[data-id="r8"] [data-act="done"]');
+    if (c8) { c8.click(); await sleep(450); }
+    var c11 = $('.card[data-id="r11"] [data-act="done"]');
+    if (c11) { c11.click(); await sleep(450); }
+    var lvLow = $('#urgencyTab').getAttribute('data-level');
+    ck('urgency_recalc_start_high', lvStart === 'high');
+    ck('urgency_recalc_to_medium', lvMid === 'medium');
+    ck('urgency_recalc_to_low', lvLow === 'low');
+    ck('urgency_detail_follows_data', $('#urgencyDetail').textContent.indexOf('进行 1 · 临期 0') >= 0);
+
+    /* 13. 暂停按钮：可停 / 可恢复，偏好记本地，不触发筛选 */
+    click('#urgencyPause');
+    ck('urgency_paused_class', $('#urgencyTab').classList.contains('paused'));
+    ck('urgency_pause_label_flipped', $('#urgencyPause').textContent === '▶');
+    ck('urgency_motion_pref_saved', window.localStorage.getItem('todo_urgency_motion_v1') === 'paused');
+    ck('pause_does_not_reset_filter', !$('#coreTabs [data-focus="today"]').classList.contains('on'));
+    click('#urgencyPause');
+    ck('urgency_resumed', !$('#urgencyTab').classList.contains('paused'));
+    ck('urgency_pause_label_restored', $('#urgencyPause').textContent === '⏸');
 
     return JSON.stringify({ fails: fails, log: log });
   } catch (e) {
