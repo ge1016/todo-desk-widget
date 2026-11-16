@@ -611,7 +611,6 @@
   var editId = '';
   var planId = '';
   var addSource = '';
-  var pendingDel = null;
   var toastTimer = null;
   var toastHandler = null;
 
@@ -895,23 +894,29 @@
 
   /* ---------- 通用提示条：删除撤销 / 完成后衍生 ---------- */
   var DELAY_MS = 8000;
-  var toastRemain = DELAY_MS;   /* 剩余可见时长：悬停 / 键盘聚焦时暂停倒数 */
+  var MAX_PAUSE_MS = 15000;     /* 悬停 / 聚焦最多暂停 15 秒，防止提示永久挂起 */
+  var toastRemain = DELAY_MS;   /* 剩余可见时长 */
   var toastStartedAt = 0;
+  var toastPausedAt = 0;
   var toastOnExpire = null;
   function hideToast() {
     if (toastTimer) { window.clearTimeout(toastTimer); toastTimer = null; }
     if (toastEl) { toastEl.hidden = true; }
     toastHandler = null;
     toastOnExpire = null;
+    toastPausedAt = 0;
+  }
+  function fireToastExpire() {
+    var fn = toastOnExpire;
+    hideToast();
+    if (fn) { fn(); }
   }
   function runToastTimer() {
     if (toastTimer) { window.clearTimeout(toastTimer); }
     toastStartedAt = Date.now();
     toastTimer = window.setTimeout(function () {
       toastTimer = null;
-      var fn = toastOnExpire;
-      hideToast();
-      if (fn) { fn(); }
+      fireToastExpire();
     }, toastRemain);
   }
   function pauseToast() {
@@ -919,14 +924,27 @@
     window.clearTimeout(toastTimer);
     toastTimer = null;
     toastRemain = Math.max(0, toastRemain - (Date.now() - toastStartedAt));
+    toastPausedAt = Date.now();
+    /* 兜底：即使焦点一直不离开，最长暂停后也强制走完生命周期 */
+    if (toastRemain > 0) {
+      toastTimer = window.setTimeout(function () {
+        if (toastPausedAt) { toastPausedAt = 0; toastRemain = 0; fireToastExpire(); }
+      }, Math.min(toastRemain, MAX_PAUSE_MS));
+    } else {
+      fireToastExpire();
+    }
   }
   function resumeToast() {
-    if (!toastEl || toastEl.hidden || toastTimer || toastRemain <= 0) { return; }
+    if (!toastEl || toastEl.hidden || !toastPausedAt) { return; }
+    toastPausedAt = 0;
+    if (toastTimer) { window.clearTimeout(toastTimer); toastTimer = null; }
+    if (toastRemain <= 0) { fireToastExpire(); return; }
     runToastTimer();
   }
   function showToast(text, label, handler, ms, onExpire) {
     if (!toastEl || !toastText || !toastBtn) { return; }
     toastRemain = ms || DELAY_MS;
+    toastPausedAt = 0;
     toastOnExpire = onExpire || null;
     toastText.textContent = text;
     toastBtn.textContent = label;
@@ -935,18 +953,12 @@
     toastEl.hidden = false;
     runToastTimer();
   }
-  /* 8 秒反悔期结束后，只打「删除时间」标记移入回收区，不物理删除 */
-  function flushDelete() {
-    if (!pendingDel) { return Promise.resolve(); }
-    var item = pendingDel;
-    pendingDel = null;
-    if (!db) { return Promise.resolve(); }
+  /* 删除即时落库：写入「删除时间」标记；撤销时清空该标记。两者都以云端为准，本地只做即时反馈 */
+  function markDeleted(id, value) {
+    if (!db || !id) { return Promise.resolve(); }
     var props = {};
-    props[F.delAt] = { text: new Date().toISOString() };
-    return db.updateRecord({ databaseId: DATABASE_ID, recordId: item.id, properties: props }).catch(function (err) {
-      console.error('[todo] 移入回收区失败:', err);
-      showBanner('移入回收区失败，记录已保留');
-    });
+    props[F.delAt] = { text: value };
+    return db.updateRecord({ databaseId: DATABASE_ID, recordId: id, properties: props });
   }
 
   /* ---------- 富文本：白名单清洗，只留安全的行内/块级标签 ---------- */
@@ -1258,9 +1270,7 @@
     });
   }
   function refresh() {
-    return flushDelete().then(function () {
-      return loadAll();
-    }).then(function (rows) {
+    return loadAll().then(function (rows) {
       ROWS = rows;
       prunePerMode();
       loadingEl.hidden = true;
@@ -1617,7 +1627,6 @@
   }
   function completeTask(id) {
     var rec = findRow(id);
-    flushDelete();
     setStatus(id, '已完成', function () {
       var name = rec ? shortName(rec[F.task]) : '待办';
       showToast('已完成「' + name + '」', '+ 衍生新事', function () {
@@ -1631,26 +1640,38 @@
     if (!db || !id) { return; }
     var rec = findRow(id);
     if (!rec) { return; }
-    flushDelete();
+    var when = new Date().toISOString();
+    /* 本地即时反馈：先从看板移除 */
     var next = [];
     for (var i = 0; i < ROWS.length; i++) {
       if (ROWS[i]._id !== id) { next.push(ROWS[i]); }
     }
     ROWS = next;
     render();
-    pendingDel = { id: id, rec: rec };
-    showToast('已移入回收区「' + shortName(rec[F.task]) + '」', '撤销', undoDelete, DELAY_MS, function () {
-      flushDelete().then(function () { return refresh(); });
+    /* 立即写标记；写库成功后从云端重载，确保回收区立刻可见、跨设备一致 */
+    markDeleted(id, when).then(function () {
+      return refresh();
+    }).then(function () {
+      showToast('已移入回收区「' + shortName(rec[F.task]) + '」', '撤销', function () {
+        undoDelete(id);
+      }, DELAY_MS, null);
+    }).catch(function (err) {
+      console.error('[todo] 移入回收区失败:', err);
+      ROWS.push(rec);
+      render();
+      showBanner('删除失败，记录已保留');
     });
   }
-  function undoDelete() {
-    if (!pendingDel) { return; }
-    var rec = pendingDel.rec;
-    pendingDel = null;
+  function undoDelete(id) {
     hideToast();
-    ROWS.push(rec);
-    render();
-    showBanner('已恢复');
+    markDeleted(id, '').then(function () {
+      return refresh();
+    }).then(function () {
+      showBanner('已恢复');
+    }).catch(function (err) {
+      console.error('[todo] 撤销失败:', err);
+      showBanner('撤销失败，任务仍在回收区');
+    });
   }
 
   /* ---------- 回收区：视图、恢复、彻底删除 ---------- */

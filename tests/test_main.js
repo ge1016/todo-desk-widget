@@ -297,10 +297,14 @@ const probe = `(async function () {
     ck('delete_button_present', !!del);
     del.click();
     ck('delete_removes_card_locally', cards() === before - 1);
+    await sleep(450);
     ck('delete_toast_visible', !$('#toast').hidden);
-    ck('delete_not_yet_called', calls('delete').length === 0);
+    ck('delete_never_hard_called', calls('delete').length === 0);
+    var undoMarked = markedCalls().length;
     click('#toastBtn');
+    await sleep(450);
     ck('undo_restores_card', cards() === before);
+    ck('undo_clears_mark', markedCalls().length === undoMarked);
     ck('delete_still_not_called', calls('delete').length === 0);
 
     /* 11. 回收区：切换视图、恢复、彻底删除（二次确认） */
@@ -338,20 +342,34 @@ const probe = `(async function () {
     ck('trash_empty_after_purge', $('#trashCount').textContent === '0');
     click('#trashBtn');
 
-    /* 12. 8 秒反悔期结束后只打删除标记，不物理删除 */
+    /* 12. 删除立即写标记进回收区（不再等 8 秒），撤销清空标记；全程不物理删除 */
     var purgeDeletes = calls('delete').length;
     var markedBefore = markedCalls().length;
     var softTarget = $('.card[data-id="r6"] [data-act="del"]');
     ck('soft_delete_target_present', !!softTarget);
     softTarget.click();
     ck('soft_delete_toast_shows_trash', $('#toastText').textContent.indexOf('回收区') >= 0);
-    ck('soft_delete_not_written_yet', markedCalls().length === markedBefore);
-    await sleep(8300);
+    ck('soft_delete_has_undo_action', $('#toastBtn').textContent.indexOf('撤销') >= 0);
+    await sleep(450);
     var marked = markedCalls();
-    ck('soft_delete_writes_timestamp', marked.length === markedBefore + 1);
+    ck('soft_delete_writes_immediately', marked.length === markedBefore + 1);
     ck('soft_delete_target_is_r6', marked.length === markedBefore + 1 && marked[marked.length - 1][1].recordId === 'r6');
     ck('soft_delete_never_hard_deletes', calls('delete').length === purgeDeletes);
     ck('trash_count_after_soft_delete', $('#trashCount').textContent === '1');
+    /* 新增：删除后不打开回收区也能从回收区入口看到它（即时可见） */
+    ck('deleted_card_gone_from_board', !$('.card[data-id="r6"]'));
+    click('#trashBtn');
+    ck('deleted_card_visible_in_trash', !!$('#trashList .card[data-id="r6"]'));
+    click('#trashBtn');
+    /* 撤销：清掉删除标记，任务回到看板 */
+    var updBeforeUndo = calls('update').length;
+    click('#toastBtn');
+    await sleep(450);
+    var updUndo = calls('update');
+    ck('undo_issued_update', updUndo.length === updBeforeUndo + 1);
+    ck('undo_clears_delete_mark', updUndo.length && updUndo[updUndo.length - 1][1].properties['删除时间'].text === '');
+    ck('undo_restores_card_to_board', !!$('.card[data-id="r6"]'));
+    ck('undo_no_hard_delete', calls('delete').length === purgeDeletes);
 
     /* 12. 紧迫度随数据实时切换：完成临期 / 进行中任务后逐级降档 */
     var lvStart = $('#urgencyTab').getAttribute('data-level');
