@@ -48,13 +48,25 @@ const probe = `(async function () {
       var a = badge('r7', 'plan'), b = badge('r1', 'plan');
       return !!a && !!b && getComputedStyle(a).color !== getComputedStyle(b).color;
     })());
+    /* 1b2. 进行中 + 开始日已过：只显示开始日期，用健康绿，不显示「已过」 */
+    ck('doing_past_plan_labeled_start', !!badge('r11', 'plan') && badge('r11', 'plan').textContent.indexOf('开始 ') === 0);
+    ck('doing_past_plan_no_overdue_word', !!badge('r11', 'plan') && badge('r11', 'plan').textContent.indexOf('已过') < 0);
+    ck('doing_past_plan_has_started_class', !!badge('r11', 'plan') && badge('r11', 'plan').classList.contains('started'));
+    ck('doing_past_plan_not_red_class', !!badge('r11', 'plan') && !badge('r11', 'plan').classList.contains('over'));
+    ck('doing_past_plan_healthy_color', (function () {
+      var a = badge('r11', 'plan'), b = badge('r7', 'plan');
+      return !!a && !!b && getComputedStyle(a).color === 'rgb(11, 124, 96)' &&
+        getComputedStyle(a).color !== getComputedStyle(b).color;
+    })());
+    ck('doing_past_plan_in_doing_module', !!$('[data-list="doing"] .card[data-id="r11"]'));
+    ck('doing_past_plan_not_in_focus', !$('[data-list="focus"] .card[data-id="r11"]'));
     ck('no_shunyan_wording', document.body.textContent.indexOf('顺延') < 0);
     ck('add_form_label_says_start', !!$('#addForm .date-field span') && $('#addForm .date-field span').textContent === '开始');
     ck('plan_dialog_label_says_start', !!$('#planMask .date-field span') && $('#planMask .date-field span').textContent === '开始日期');
     ck('plan_dialog_title_says_start', !!$('#planMask h3') && $('#planMask h3').textContent === '设置开始日期');
-    ck('initial_cards_8', cards() === 8);
+    ck('initial_cards_9', cards() === 9);
     ck('focus_module_4', inMod('focus') === 4);
-    ck('doing_module_1', inMod('doing') === 1);
+    ck('doing_module_2', inMod('doing') === 2);
     ck('todo_module_1', inMod('todo') === 1);
     ck('done_module_1', inMod('done') === 1);
     ck('hold_module_1', inMod('hold') === 1);

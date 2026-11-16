@@ -122,6 +122,8 @@
   .badge.plan { background: rgba(47, 107, 255, .1); color: #2456c9; }
   .badge.plan.today { background: rgba(47, 107, 255, .17); color: #1f4ec2; font-weight: 600; }
   .badge.plan.over, .badge.plan.over:hover { background: rgba(229, 72, 77, .11); color: var(--red); }
+  /* 进行中任务：开始日已过说明它已经开工，用健康绿表示，不再标「已过」 */
+  .badge.plan.started, .badge.plan.started.date-tog:hover { background: rgba(18, 163, 127, .12); color: #0b7c60; }
   .badge.src { background: rgba(126, 92, 196, .1); color: #6a4cae; }
   .badge.child { background: rgba(18, 163, 127, .12); color: #0b7c60; }
   .badge.date-tog { cursor: pointer; border: 1px solid transparent; }
@@ -574,8 +576,10 @@
       var plan = isoDate(r[F.plan]);
       if (!plan) { return ''; }
       if (plan === today) { return '今天开始'; }
-      /* 开始日已过：日期仍按「开始」标注，状态用可见文字表达，颜色只作辅助 */
-      if (plan < today && st !== '已完成') { return '开始 ' + plan.slice(5) + ' · 已过'; }
+      /* 开始日已过：进行中说明已经开工，只显示开始日期；其他状态用可见文字标「已过」，颜色只作辅助 */
+      if (plan < today && st !== '已完成') {
+        return st === '进行中' ? '开始 ' + plan.slice(5) : '开始 ' + plan.slice(5) + ' · 已过';
+      }
       return dateLabel(plan, today, '开始', st !== '已完成', mode);
     }
     var due = isoDate(r[F.due]);
@@ -1277,8 +1281,11 @@
     var plan = isoDate(r[F.plan]);
     if (plan) {
       var planToday = plan === today;
-      var planOver = plan < today && st !== '已完成';
-      var planBadge = bind(el('span', 'badge plan' + (planToday ? ' today' : '') + (planOver ? ' over' : '') + togCls,
+      var planPast = plan < today && st !== '已完成';
+      var planOver = planPast && st !== '进行中';
+      var planStarted = planPast && st === '进行中';
+      var planBadge = bind(el('span', 'badge plan' + (planToday ? ' today' : '') + (planOver ? ' over' : '') +
+        (planStarted ? ' started' : '') + togCls,
         dateBadgeText('plan', r, st, today, cardMode)));
       if (canToggle) {
         planBadge.setAttribute('data-date-toggle', '1');
