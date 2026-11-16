@@ -19,10 +19,14 @@ const probe = `(async function () {
     catch (e) { return {}; }
   }
   try {
-    /* 1. 首页结构：核心标签 + 模块 + 悬浮按钮 */
+    /* 1. 首页结构：核心标签 + 模块 + 右下角悬浮按钮 */
     ck('core_tabs_4', document.querySelectorAll('#coreTabs [data-focus]').length === 4);
     ck('modules_5', document.querySelectorAll('[data-mod]').length === 5);
     ck('fab_exists', !!$('#fabAdd'));
+    ck('fab_is_fixed', !!$('#fabAdd') && getComputedStyle($('#fabAdd')).position === 'fixed');
+    ck('fab_inset_from_right_edge', !!$('#fabAdd') && parseInt(getComputedStyle($('#fabAdd')).right, 10) >= 24);
+    ck('fab_inset_from_bottom_edge', !!$('#fabAdd') && parseInt(getComputedStyle($('#fabAdd')).bottom, 10) >= 36);
+    ck('no_top_actionbar', !$('#actionBar') && !$('#addNewBtn'));
     ck('add_mask_initially_hidden', $('#addMask').hidden);
     ck('initial_cards_8', cards() === 8);
     ck('focus_module_4', inMod('focus') === 4);
