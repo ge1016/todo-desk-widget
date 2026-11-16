@@ -139,6 +139,19 @@
   .act.primary { color: var(--brand); border-color: rgba(47, 107, 255, .32); }
   .act.derive { color: #6a4cae; border-color: rgba(126, 92, 196, .3); }
   .act.danger { color: var(--red); }
+  .act.danger.confirm { background: var(--red); color: #fff; border-color: transparent; }
+
+  /* ---------- 回收区 ---------- */
+  .trash-btn { display: inline-flex; align-items: center; gap: 5px; }
+  .trash-btn.on { background: var(--brand); border-color: transparent; color: #fff; }
+  .trash-btn .n { font-variant-numeric: tabular-nums; opacity: .8; }
+  .trash-panel { margin: 0 0 14px; }
+  .trash-head { display: flex; align-items: center; gap: 9px; flex-wrap: wrap; margin: 0 0 10px; font-size: 12px; color: var(--ink3); }
+  .trash-head b { font-size: 14px; font-weight: 640; color: var(--ink); }
+  .trash-list { display: flex; flex-direction: column; gap: 9px; }
+  .card.trash-card { border-style: dashed; background: rgba(255, 255, 255, .55); }
+  .card.trash-card .card-title { color: var(--ink2); }
+  .card.trash-card .actions { opacity: 1; }
 
   /* ---------- 富文本 ---------- */
   .rt-bar { display: flex; gap: 4px; flex-wrap: wrap; align-items: center; padding: 4px 0 7px; }
@@ -329,7 +342,13 @@
     <input id="searchInput" type="search" placeholder="搜索任务…">
     <div class="chips" id="catChips"></div>
     <button type="button" class="mode-btn" id="dueModeBtn" title="同步全部任务：统一切换日期 / 倒计时，并清除单独设置">全部切到倒计时</button>
+    <button type="button" class="mode-btn trash-btn" id="trashBtn" title="查看已删除的任务">回收区<span class="n" id="trashCount">0</span></button>
     <label class="switch"><input type="checkbox" id="hideDone"> 隐藏已完成</label>
+  </section>
+
+  <section class="trash-panel" id="trashPanel" hidden>
+    <div class="trash-head"><b>回收区</b><span id="trashSummary">删除的任务会先放这里，可恢复或彻底删除</span></div>
+    <div class="trash-list" id="trashList"></div>
   </section>
 
   <section class="modules" id="board">
@@ -447,14 +466,14 @@
   var SP = (typeof window !== 'undefined' && window.__SMART_PAGE__) ? window.__SMART_PAGE__ : null;
   var db = (SP && SP.database) ? SP.database : null;
 
-  var F = { task: '任务', status: '状态', priority: '优先级', cat: '分类', plan: '计划日期', due: '截止日期', done: '完成日期', note: '备注', detail: '详情', source: '来源' };
+  var F = { task: '任务', status: '状态', priority: '优先级', cat: '分类', plan: '计划日期', due: '截止日期', done: '完成日期', note: '备注', detail: '详情', source: '来源', delAt: '删除时间' };
   var MODS = ['focus', 'doing', 'todo', 'done', 'hold'];
   var STATUS_ID = {};
   var STATUS_TEXT = {};
   var PRIO_ID = {};
   var PRIO_TEXT = {};
   var ROWS = [];
-  var view = { q: '', cat: '', hideDone: false, todayOnly: false, focus: '' };
+  var view = { q: '', cat: '', hideDone: false, todayOnly: false, focus: '', trash: false };
   var DRAFT_KEY = 'todo_draft_v1';
   var VIEW_KEY = 'todo_view_v3';
   var MODE_KEY = 'todo_due_mode_v1';           /* 全局默认 / 同步后的统一模式 */
@@ -477,6 +496,8 @@
   var taskInput, prioInput, catInput, planInput, dueInput, addBtn, addForm, searchInput, hideDone, bannerEl, boardEl, loadingEl, chipsEl;
   var descToggle, rtWrap, descEditor, addBar, descMask, editEditor, editBar, descTaskLabel;
   var viewTabs, focusCountEl, coreTabs, dueModeBtn, focusLeadBtn, toastEl, toastText, toastBtn, toastClose;
+  var trashBtn, trashPanel, trashList, trashCount, trashSummary;
+  var purgePending = null;
   var planMask, planTaskLabel, planQuick, planPick;
   var fabAdd, addMask, sourceTag, sourceName, sourceClear;
 
@@ -740,14 +761,17 @@
       if (onExpire) { onExpire(); }
     }, ms || DELAY_MS);
   }
+  /* 8 秒反悔期结束后，只打「删除时间」标记移入回收区，不物理删除 */
   function flushDelete() {
     if (!pendingDel) { return Promise.resolve(); }
     var item = pendingDel;
     pendingDel = null;
     if (!db) { return Promise.resolve(); }
-    return db.deleteRecord({ databaseId: DATABASE_ID, recordId: item.id }).catch(function (err) {
-      console.error('[todo] 删除失败:', err);
-      showBanner('删除失败，记录已保留');
+    var props = {};
+    props[F.delAt] = { text: new Date().toISOString() };
+    return db.updateRecord({ databaseId: DATABASE_ID, recordId: item.id, properties: props }).catch(function (err) {
+      console.error('[todo] 移入回收区失败:', err);
+      showBanner('移入回收区失败，记录已保留');
     });
   }
 
@@ -855,6 +879,7 @@
     descToggle.textContent = open ? '收起描述' : '＋ 补充描述（可加粗、分条）';
     if (open) { descEditor.focus(); }
   }
+  function isTrashed(r) { return String(r[F.delAt] || '').length > 0; }
   function findRow(id) {
     for (var i = 0; i < ROWS.length; i++) {
       if (ROWS[i]._id === id) { return ROWS[i]; }
@@ -864,7 +889,7 @@
   function childCount(id) {
     var n = 0;
     for (var i = 0; i < ROWS.length; i++) {
-      if (String(ROWS[i][F.source] || '') === id) { n++; }
+      if (!isTrashed(ROWS[i]) && String(ROWS[i][F.source] || '') === id) { n++; }
     }
     return n;
   }
@@ -928,6 +953,11 @@
     focusCountEl = document.getElementById('focusCount');
     dueModeBtn = document.getElementById('dueModeBtn');
     focusLeadBtn = document.getElementById('focusLeadBtn');
+    trashBtn = document.getElementById('trashBtn');
+    trashPanel = document.getElementById('trashPanel');
+    trashList = document.getElementById('trashList');
+    trashCount = document.getElementById('trashCount');
+    trashSummary = document.getElementById('trashSummary');
     toastEl = document.getElementById('toast');
     toastText = document.getElementById('toastText');
     toastBtn = document.getElementById('toastBtn');
@@ -1103,10 +1133,13 @@
     var today = todayISO();
     var doneCount = 0, todayDone = 0, holdCount = 0, focusCount = 0, overdueCount = 0;
     var groups = { focus: [], doing: [], todo: [], done: [], hold: [] };
+    var trash = [];
     var cats = {}, i, st, r;
 
     for (i = 0; i < ROWS.length; i++) {
       r = ROWS[i];
+      /* 软删除记录只进回收区，不参与 KPI、分组与分类筛选 */
+      if (isTrashed(r)) { trash.push(r); continue; }
       st = statusText(r[F.status]) || '待办';
       if (st === '已完成') {
         doneCount++;
@@ -1141,6 +1174,8 @@
     syncCoreTabs();
     syncFocusLead();
     renderChips(cats);
+    syncTrash(trash.length);
+    renderTrash(trash);
 
     var visible = { focus: false, doing: false, todo: false, done: false, hold: false };
     if (view.focus === 'today' || view.focus === 'overdue') { visible.focus = true; }
@@ -1364,7 +1399,7 @@
     ROWS = next;
     render();
     pendingDel = { id: id, rec: rec };
-    showToast('已删除「' + shortName(rec[F.task]) + '」', '撤销', undoDelete, DELAY_MS, function () {
+    showToast('已移入回收区「' + shortName(rec[F.task]) + '」', '撤销', undoDelete, DELAY_MS, function () {
       flushDelete().then(function () { return refresh(); });
     });
   }
@@ -1376,6 +1411,110 @@
     ROWS.push(rec);
     render();
     showBanner('已恢复');
+  }
+
+  /* ---------- 回收区：视图、恢复、彻底删除 ---------- */
+  function delLabel(when) {
+    var d = new Date(when);
+    if (isNaN(d.getTime())) { return '删除于 ' + String(when).slice(0, 10); }
+    var p = function (n) { return n < 10 ? '0' + n : String(n); };
+    return '删除于 ' + p(d.getMonth() + 1) + '-' + p(d.getDate()) + ' ' + p(d.getHours()) + ':' + p(d.getMinutes());
+  }
+  function syncTrash(n) {
+    if (trashBtn) {
+      if (view.trash) { trashBtn.classList.add('on'); } else { trashBtn.classList.remove('on'); }
+      trashBtn.title = n ? ('回收区有 ' + n + ' 条已删除任务，点击查看') : '回收区为空';
+    }
+    if (trashCount) { trashCount.textContent = String(n); }
+    if (trashPanel) { trashPanel.hidden = !view.trash; }
+    if (boardEl) { boardEl.hidden = !!view.trash; }
+    if (trashSummary) {
+      trashSummary.textContent = n
+        ? (n + ' 条已删除 · 可恢复，或彻底删除（彻底删除后无法找回）')
+        : '删除的任务会先放这里，可恢复或彻底删除';
+    }
+  }
+  function buildTrashCard(r) {
+    var card = el('div', 'card trash-card');
+    card.setAttribute('data-id', r._id || '');
+    var title = bind(el('div', 'card-title'));
+    title.textContent = String(r[F.task] || '(未命名任务)');
+    card.appendChild(title);
+    var meta = el('div', 'meta');
+    meta.appendChild(bind(el('span', 'badge', delLabel(String(r[F.delAt] || '')))));
+    meta.appendChild(bind(el('span', 'badge', statusText(r[F.status]) || '待办')));
+    if (r[F.cat]) { meta.appendChild(bind(el('span', 'badge', String(r[F.cat])))); }
+    card.appendChild(meta);
+    var actions = el('div', 'actions');
+    actions.appendChild(mkAct('restore', '恢复', 'primary'));
+    actions.appendChild(mkAct('purge', '彻底删除', 'danger'));
+    card.appendChild(actions);
+    return card;
+  }
+  function renderTrash(list) {
+    if (!trashList) { return; }
+    while (trashList.firstChild) { trashList.removeChild(trashList.firstChild); }
+    if (!view.trash) { return; }
+    var q = String(view.q || '').toLowerCase();
+    var rows = [];
+    for (var i = 0; i < list.length; i++) {
+      var r = list[i];
+      if (q) {
+        var hay = (String(r[F.task] || '') + ' ' + String(r[F.cat] || '') + ' ' + rtText(r[F.detail])).toLowerCase();
+        if (hay.indexOf(q) < 0) { continue; }
+      }
+      rows.push(r);
+    }
+    rows.sort(function (a, b) {
+      var ta = String(a[F.delAt] || ''), tb = String(b[F.delAt] || '');
+      if (ta < tb) { return 1; }
+      if (ta > tb) { return -1; }
+      return 0;
+    });
+    if (!rows.length) {
+      trashList.appendChild(el('div', 'empty', q ? '回收区里没有匹配的任务' : '回收区是空的'));
+      return;
+    }
+    for (var k = 0; k < rows.length; k++) { trashList.appendChild(buildTrashCard(rows[k])); }
+  }
+  function restoreRecord(id) {
+    if (!db || !id) { return; }
+    var props = {};
+    props[F.delAt] = { text: '' };
+    db.updateRecord({ databaseId: DATABASE_ID, recordId: id, properties: props }).then(function () {
+      return refresh();
+    }).then(function () {
+      showBanner('已恢复到原来的位置');
+    }).catch(function (err) {
+      console.error('[todo] 恢复失败:', err);
+      showBanner('恢复失败，请稍后重试');
+    });
+  }
+  function purgeRecord(id, btn) {
+    if (!db || !id) { return; }
+    if (!purgePending || purgePending.id !== id) {
+      purgePending = { id: id };
+      btn.textContent = '再点一次确认';
+      btn.classList.add('confirm');
+      window.setTimeout(function () {
+        if (purgePending && purgePending.id === id) {
+          purgePending = null;
+          btn.textContent = '彻底删除';
+          btn.classList.remove('confirm');
+        }
+      }, 5000);
+      return;
+    }
+    purgePending = null;
+    btn.textContent = '删除中…';
+    db.deleteRecord({ databaseId: DATABASE_ID, recordId: id }).then(function () {
+      return refresh();
+    }).then(function () {
+      showBanner('已彻底删除');
+    }).catch(function (err) {
+      console.error('[todo] 彻底删除失败:', err);
+      showBanner('彻底删除失败，请稍后重试');
+    });
   }
 
   function addTask() {
@@ -1415,6 +1554,7 @@
       clearAddSource();
       clearDraft();
       addMask.hidden = true;
+      view.trash = false;
       hideToast();
       return refresh();
     }).catch(function (err) {
@@ -1571,6 +1711,7 @@
       var t = e.target && e.target.closest ? e.target.closest('[data-view]') : null;
       if (!t) { return; }
       view.todayOnly = t.getAttribute('data-view') === 'today';
+      view.trash = false;
       saveViewPref();
       syncViewTabs();
       render();
@@ -1579,12 +1720,31 @@
       var t = e.target && e.target.closest ? e.target.closest('[data-focus]') : null;
       if (!t) { return; }
       var f = t.getAttribute('data-focus');
+      view.trash = false;
       if (f === 'rate') { view.focus = ''; view.todayOnly = false; saveViewPref(); }
       else { view.focus = (view.focus === f) ? '' : f; }
       syncViewTabs();
       render();
     });
     dueModeBtn.addEventListener('click', toggleDueMode);
+    if (trashBtn) {
+      trashBtn.addEventListener('click', function () {
+        view.trash = !view.trash;
+        render();
+      });
+    }
+    if (trashList) {
+      trashList.addEventListener('click', function (e) {
+        var btn = findAct(e.target);
+        if (!btn) { return; }
+        var card = findCard(btn);
+        if (!card) { return; }
+        var id = card.getAttribute('data-id');
+        var act = btn.getAttribute('data-act');
+        if (act === 'restore') { restoreRecord(id); }
+        else if (act === 'purge') { purgeRecord(id, btn); }
+      });
+    }
     if (toastBtn) {
       toastBtn.addEventListener('click', function () {
         var fn = toastHandler;

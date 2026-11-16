@@ -58,6 +58,22 @@ rows = [
      '备注': '', '详情': '', '来源': ''},
 ]
 
+# 所有正常任务都没有删除标记
+for _r in rows:
+    _r.setdefault('删除时间', '')
+
+# r9 / r10：已删除记录，用于验证回收区（正常视图必须完全看不到它们）
+rows.append(
+    {'_id': 'r9', '任务': '测试任务I（已在回收区·待恢复）', '状态': S_TODO, '优先级': P_MID,
+     '分类': 'AI', '计划日期': '', '截止日期': '', '完成日期': '',
+     '备注': '', '详情': '', '来源': '', '删除时间': '2026-11-15T02:00:00.000Z'}
+)
+rows.append(
+    {'_id': 'r10', '任务': '测试任务J（回收区·待彻底删除）', '状态': S_TODO, '优先级': P_MID,
+     '分类': '企微', '计划日期': '', '截止日期': '', '完成日期': '',
+     '备注': '', '详情': '', '来源': '', '删除时间': '2026-11-14T06:30:00.000Z'}
+)
+
 mock = """
 <script>
 window.__calls = [];
@@ -68,13 +84,30 @@ try {
   window.localStorage.removeItem('todo_focus_lead_v1');
   window.localStorage.removeItem('todo_draft_v1');
 } catch (e) {}
+var __rows = ROWS;
+function __findRow(id) {
+  for (var i = 0; i < __rows.length; i++) { if (__rows[i]._id === id) { return i; } }
+  return -1;
+}
 window.__SMART_PAGE__ = {
   database: {
     getSchema: function () { return Promise.resolve(SCHEMA); },
-    query: function () { return Promise.resolve({ results: ROWS.slice(), hasMore: false, nextCursor: null }); },
+    query: function () { return Promise.resolve({ results: __rows.slice(), hasMore: false, nextCursor: null }); },
     addRecord: function (a) { window.__calls.push(['add', a]); return Promise.resolve({}); },
-    updateRecord: function (a) { window.__calls.push(['update', a]); return Promise.resolve({}); },
-    deleteRecord: function (a) { window.__calls.push(['delete', a]); return Promise.resolve({}); }
+    updateRecord: function (a) {
+      window.__calls.push(['update', a]);
+      var p = a.properties || {};
+      var i = __findRow(a.recordId);
+      /* 只同步「删除时间」字段，其余保持原样，避免影响已有断言 */
+      if (i >= 0 && p['删除时间']) { __rows[i]['删除时间'] = p['删除时间'].text; }
+      return Promise.resolve({});
+    },
+    deleteRecord: function (a) {
+      window.__calls.push(['delete', a]);
+      var i = __findRow(a.recordId);
+      if (i >= 0) { __rows.splice(i, 1); }
+      return Promise.resolve({});
+    }
   }
 };
 </script>

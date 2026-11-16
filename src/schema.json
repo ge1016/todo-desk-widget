@@ -7,6 +7,10 @@
     { "name": "分类", "config": { "text": "" } },
     { "name": "截止日期", "config": { "date": "1970-01-01T00:00:00Z" } },
     { "name": "完成日期", "config": { "date": "1970-01-01T00:00:00Z" } },
-    { "name": "备注", "config": { "text": "" } }
+    { "name": "备注", "config": { "text": "" } },
+    { "name": "详情", "config": { "text": "" } },
+    { "name": "计划日期", "config": { "date": "1970-01-01T00:00:00Z" } },
+    { "name": "来源", "config": { "text": "" } },
+    { "name": "删除时间", "config": { "text": "" } }
   ]
 }

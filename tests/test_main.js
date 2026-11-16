@@ -18,6 +18,12 @@ const probe = `(async function () {
     try { return JSON.parse(window.localStorage.getItem('todo_due_mode_per_v1') || '{}'); }
     catch (e) { return {}; }
   }
+  function markedCalls() {
+    return calls('update').filter(function (c) {
+      var p = (c[1] && c[1].properties) || {};
+      return p['删除时间'] && p['删除时间'].text;
+    });
+  }
   try {
     /* 1. 首页结构：核心标签 + 模块 + 右下角悬浮按钮 */
     ck('core_tabs_4', document.querySelectorAll('#coreTabs [data-focus]').length === 4);
@@ -27,6 +33,10 @@ const probe = `(async function () {
     ck('fab_inset_from_right_edge', !!$('#fabAdd') && parseInt(getComputedStyle($('#fabAdd')).right, 10) >= 24);
     ck('fab_inset_from_bottom_edge', !!$('#fabAdd') && parseInt(getComputedStyle($('#fabAdd')).bottom, 10) >= 36);
     ck('no_top_actionbar', !$('#actionBar') && !$('#addNewBtn'));
+    ck('trash_button_exists', !!$('#trashBtn'));
+    ck('trash_panel_initially_hidden', $('#trashPanel').hidden);
+    ck('trash_count_2', $('#trashCount').textContent === '2');
+    ck('deleted_records_hidden_from_board', !$('.card[data-id="r9"]') && !$('.card[data-id="r10"]'));
     ck('add_mask_initially_hidden', $('#addMask').hidden);
     ck('initial_cards_8', cards() === 8);
     ck('focus_module_4', inMod('focus') === 4);
@@ -175,6 +185,56 @@ const probe = `(async function () {
     click('#toastBtn');
     ck('undo_restores_card', cards() === before);
     ck('delete_still_not_called', calls('delete').length === 0);
+
+    /* 11. 回收区：切换视图、恢复、彻底删除（二次确认） */
+    var delCallsBeforePurge = calls('delete').length;
+    click('#trashBtn');
+    ck('trash_panel_visible', !$('#trashPanel').hidden);
+    ck('trash_board_hidden', $('#board').hidden);
+    ck('trash_button_active', $('#trashBtn').classList.contains('on'));
+    ck('trash_lists_2', document.querySelectorAll('#trashList .card').length === 2);
+    ck('trash_card_has_restore', !!$('#trashList .card[data-id="r9"] [data-act="restore"]'));
+    ck('trash_card_has_purge', !!$('#trashList .card[data-id="r10"] [data-act="purge"]'));
+    ck('trash_card_shows_delete_time', !!$('#trashList .card[data-id="r9"] .badge') && $('#trashList .card[data-id="r9"] .badge').textContent.indexOf('删除于') === 0);
+    ck('trash_card_no_normal_actions', !$('#trashList .card[data-id="r9"] [data-act="del"]'));
+
+    var updBefore = calls('update').length;
+    click('#trashList .card[data-id="r9"] [data-act="restore"]');
+    await sleep(450);
+    var updAfter = calls('update');
+    ck('restore_issued_update', updAfter.length === updBefore + 1);
+    ck('restore_clears_delete_time', updAfter.length && updAfter[updAfter.length - 1][1].properties['删除时间'].text === '');
+    ck('trash_count_after_restore', $('#trashCount').textContent === '1');
+    click('#trashBtn');
+    ck('restored_card_back_in_board', !!$('.card[data-id="r9"]'));
+    ck('board_visible_after_exit', !$('#board').hidden);
+
+    click('#trashBtn');
+    var purgeBtn = $('#trashList .card[data-id="r10"] [data-act="purge"]');
+    ck('purge_button_present', !!purgeBtn);
+    purgeBtn.click();
+    ck('purge_first_click_no_delete', calls('delete').length === delCallsBeforePurge);
+    ck('purge_first_click_confirm_label', purgeBtn.textContent.indexOf('确认') >= 0);
+    purgeBtn.click();
+    await sleep(450);
+    ck('purge_second_click_deletes', calls('delete').length === delCallsBeforePurge + 1);
+    ck('trash_empty_after_purge', $('#trashCount').textContent === '0');
+    click('#trashBtn');
+
+    /* 12. 8 秒反悔期结束后只打删除标记，不物理删除 */
+    var purgeDeletes = calls('delete').length;
+    var markedBefore = markedCalls().length;
+    var softTarget = $('.card[data-id="r6"] [data-act="del"]');
+    ck('soft_delete_target_present', !!softTarget);
+    softTarget.click();
+    ck('soft_delete_toast_shows_trash', $('#toastText').textContent.indexOf('回收区') >= 0);
+    ck('soft_delete_not_written_yet', markedCalls().length === markedBefore);
+    await sleep(8300);
+    var marked = markedCalls();
+    ck('soft_delete_writes_timestamp', marked.length === markedBefore + 1);
+    ck('soft_delete_target_is_r6', marked.length === markedBefore + 1 && marked[marked.length - 1][1].recordId === 'r6');
+    ck('soft_delete_never_hard_deletes', calls('delete').length === purgeDeletes);
+    ck('trash_count_after_soft_delete', $('#trashCount').textContent === '1');
 
     return JSON.stringify({ fails: fails, log: log });
   } catch (e) {
