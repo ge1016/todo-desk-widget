@@ -89,25 +89,17 @@ const probe = `(async function () {
     ck('urgency_tab_exists', !!$('#urgencyTab'));
     ck('urgency_kpi_shows_level', !!$('#urgencyNum') && ['低', '中', '高'].indexOf($('#urgencyNum').textContent) >= 0);
     ck('urgency_initial_high', $('#urgencyTab').getAttribute('data-level') === 'high');
-    ck('urgency_detail_counts', !!$('#urgencyDetail') && $('#urgencyDetail').textContent.indexOf('进行 2 · 临期 3') >= 0);
-    ck('urgency_svg_present', !!$('#urgencyTab .u-arc') && !!$('#urgencyTab .u-core'));
-    ck('urgency_pause_button', !!$('#urgencyPause') && $('#urgencyPause').textContent === '⏸');
-    ck('urgency_arc_animates_or_reduced', (function () {
-      var arc = $('#urgencyTab .u-arc');
-      if (!arc) { return false; }
-      var reduced = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-      return reduced || getComputedStyle(arc).animationName.indexOf('u-spin') >= 0;
-    })());
-    ck('urgency_speed_scales_by_level', (function () {
+    ck('urgency_counts_in_title', ($('#urgencyTab').getAttribute('title') || '').indexOf('进行 2 · 临期 3') >= 0);
+    ck('urgency_no_animation', (function () {
       var t = $('#urgencyTab');
-      function spin(l) { t.setAttribute('data-level', l); return parseFloat(getComputedStyle(t).getPropertyValue('--u-spin')); }
-      var lo = spin('low'), mid = spin('medium'), hi = spin('high');
-      t.setAttribute('data-level', 'high');
-      return lo > mid && mid > hi;
+      return !$('#urgencyTab .u-arc') && !$('#urgencyTab .u-core')
+        && !$('#urgencyPause') && !$('#urgencyTab .u-pause')
+        && getComputedStyle(t).getPropertyValue('--u-spin').trim() === ''
+        && getComputedStyle(t).getPropertyValue('--u-pulse').trim() === '';
     })());
     ck('urgency_color_differs_by_level', (function () {
       var t = $('#urgencyTab');
-      function color(l) { t.setAttribute('data-level', l); return getComputedStyle(t).getPropertyValue('--u-color').trim(); }
+      function color(l) { t.setAttribute('data-level', l); return getComputedStyle(t).getPropertyValue('--u-text').trim(); }
       var lo = color('low'), mid = color('medium'), hi = color('high');
       t.setAttribute('data-level', 'high');
       return lo !== mid && mid !== hi && lo !== hi;
@@ -445,17 +437,7 @@ const probe = `(async function () {
     ck('urgency_recalc_start_high', lvStart === 'high');
     ck('urgency_recalc_to_medium', lvMid === 'medium');
     ck('urgency_recalc_to_low', lvLow === 'low');
-    ck('urgency_detail_follows_data', $('#urgencyDetail').textContent.indexOf('进行 1 · 临期 0') >= 0);
-
-    /* 13. 暂停按钮：可停 / 可恢复，偏好记本地，不触发筛选 */
-    click('#urgencyPause');
-    ck('urgency_paused_class', $('#urgencyTab').classList.contains('paused'));
-    ck('urgency_pause_label_flipped', $('#urgencyPause').textContent === '▶');
-    ck('urgency_motion_pref_saved', window.localStorage.getItem('todo_urgency_motion_v1') === 'paused');
-    ck('pause_does_not_reset_filter', !$('#coreTabs [data-focus="today"]').classList.contains('on'));
-    click('#urgencyPause');
-    ck('urgency_resumed', !$('#urgencyTab').classList.contains('paused'));
-    ck('urgency_pause_label_restored', $('#urgencyPause').textContent === '⏸');
+    ck('urgency_counts_follow_data', ($('#urgencyTab').getAttribute('title') || '').indexOf('进行 1 · 临期 0') >= 0);
 
     return JSON.stringify({ fails: fails, log: log });
   } catch (e) {

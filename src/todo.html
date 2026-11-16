@@ -28,7 +28,7 @@
     --dur-mid: .16s;
   }
   @media (pointer: coarse) { :root { --target: 44px; } }
-  /* 尊重系统「减少动态效果」：全局压平过渡与动画，紧迫度环在 no-preference 下才转 */
+  /* 尊重系统「减少动态效果」：全局压平过渡与动画 */
   @media (prefers-reduced-motion: reduce) {
     *, *::before, *::after {
       animation-duration: .01ms !important; animation-iteration-count: 1 !important;
@@ -79,40 +79,12 @@
   .tab-label { display: block; font-size: 11.5px; color: var(--ink3); margin-top: 1px; }
   .tab.warn .tab-num { color: var(--red); }
 
-  /* ---------- 紧迫度指示器：SVG 环随等级变色 / 变速 ---------- */
-  .urgency-wrap { position: relative; }
-  .tab.urgency { display: flex; align-items: center; gap: 9px; min-width: 158px; padding: 8px 30px 8px 11px; }
-  .urgency-svg { width: 34px; height: 34px; flex: 0 0 auto; overflow: visible; }
-  .u-track { fill: none; stroke: rgba(22, 45, 90, .11); stroke-width: 3; }
-  .u-arc {
-    fill: none; stroke: var(--u-color); stroke-width: 3.2; stroke-linecap: round;
-    stroke-dasharray: 48 46; transform-origin: 20px 20px;
-  }
-  .u-core { fill: var(--u-color); transform-origin: 20px 20px; }
-  .urgency-copy { min-width: 0; }
-  .tab.urgency .tab-num { font-size: 18px; color: var(--u-text); }
-  .tab.urgency .tab-label { font-size: 10.5px; }
-  .u-detail { display: block; font-size: 10px; color: var(--ink3); margin-top: 2px; font-variant-numeric: tabular-nums; }
-  .u-pause {
-    position: absolute; top: 7px; right: 7px; width: 20px; height: 20px; padding: 0;
-    font-family: inherit; font-size: 10px; line-height: 18px; text-align: center;
-    border-radius: 6px; border: 1px solid rgba(22, 45, 90, .1); background: rgba(255, 255, 255, .72);
-    color: var(--ink3); cursor: pointer;
-  }
-  .u-pause:hover { color: var(--brand); border-color: rgba(47, 107, 255, .4); }
-  .u-pause::after { content: ""; position: absolute; inset: -10px; }
-  .tab.urgency[data-level="low"]    { --u-color: #0b7c60; --u-text: #0b7c60; --u-spin: 6s;   --u-pulse: 2.4s; }
-  .tab.urgency[data-level="medium"] { --u-color: #9a6a12; --u-text: #8a5d0b; --u-spin: 3s;   --u-pulse: 1.4s; }
-  .tab.urgency[data-level="high"]   { --u-color: #c62a30; --u-text: #c62a30; --u-spin: 1.2s; --u-pulse: .7s; }
-  @media (prefers-reduced-motion: no-preference) {
-    .tab.urgency:not(.paused) .u-arc { animation: u-spin var(--u-spin) linear infinite; }
-    .tab.urgency:not(.paused) .u-core { animation: u-pulse var(--u-pulse) ease-in-out infinite; }
-  }
-  @keyframes u-spin { to { transform: rotate(360deg); } }
-  @keyframes u-pulse {
-    0%, 100% { transform: scale(1); opacity: .95; }
-    50% { transform: scale(1.4); opacity: .5; }
-  }
+  /* ---------- 紧迫度指示器：静态等级，随等级变色（无动效） ---------- */
+  .tab.urgency { min-width: 96px; }
+  .tab.urgency .tab-num { color: var(--u-text); }
+  .tab.urgency[data-level="low"]    { --u-text: #0b7c60; }
+  .tab.urgency[data-level="medium"] { --u-text: #8a5d0b; }
+  .tab.urgency[data-level="high"]   { --u-text: #c62a30; }
 
   /* ---------- 工具条 ---------- */
   .toolbar { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin: 0 0 16px; }
@@ -393,12 +365,7 @@
     .tab { min-width: 0; padding: 7px 6px; border-radius: 11px; text-align: center; }
     .tab-num { font-size: 17px; }
     .tab-label { font-size: 10px; }
-    .urgency-wrap { min-width: 0; }
-    .tab.urgency { min-width: 0; gap: 4px; padding: 7px 15px 7px 6px; text-align: left; }
-    .urgency-svg { width: 26px; height: 26px; }
-    .tab.urgency .tab-num { font-size: 16px; }
-    .u-detail { display: none; }
-    .u-pause { top: 3px; right: 3px; width: 15px; height: 15px; font-size: 8px; line-height: 13px; border-radius: 4px; }
+    .tab.urgency { min-width: 0; }
     .toolbar { gap: 7px; margin-bottom: 12px; }
     #searchInput { flex: 1 1 120px; width: auto; }
     .switch { margin-left: 0; font-size: 11.5px; }
@@ -430,21 +397,10 @@
       <button type="button" class="tab" data-focus="today"><span class="tab-num" data-kpi="focus" data-sp-bindable="database" data-sp-database-id="YOUR_DATABASE_ID">0</span><span class="tab-label">今天要做</span></button>
       <button type="button" class="tab" data-focus="overdue" data-kpi-box="overdue"><span class="tab-num" data-kpi="overdue" data-sp-bindable="database" data-sp-database-id="YOUR_DATABASE_ID">0</span><span class="tab-label">已逾期</span></button>
       <button type="button" class="tab" data-focus="done"><span class="tab-num" data-kpi="doneToday" data-sp-bindable="database" data-sp-database-id="YOUR_DATABASE_ID">0</span><span class="tab-label">今日完成</span></button>
-      <div class="urgency-wrap">
-        <button type="button" class="tab urgency" id="urgencyTab" data-focus="urgency" data-level="low" title="紧迫度：低（进行 0 · 临期 0）。紧迫分 = 进行中 + 临期（含逾期），0–1 低 / 2–3 中 / ≥4 高。点击查看全部任务">
-          <svg class="urgency-svg" viewBox="0 0 40 40" aria-hidden="true" focusable="false">
-            <circle class="u-track" cx="20" cy="20" r="15"></circle>
-            <circle class="u-arc" cx="20" cy="20" r="15"></circle>
-            <circle class="u-core" cx="20" cy="20" r="4.5"></circle>
-          </svg>
-          <span class="urgency-copy">
-            <span class="tab-num" id="urgencyNum" data-kpi="urgency">低</span>
-            <span class="tab-label">紧迫度</span>
-            <span class="u-detail" id="urgencyDetail">进行 0 · 临期 0</span>
-          </span>
-        </button>
-        <button type="button" class="u-pause" id="urgencyPause" aria-label="暂停紧迫度动画" title="暂停动画">⏸</button>
-      </div>
+      <button type="button" class="tab urgency" id="urgencyTab" data-focus="urgency" data-level="low" title="紧迫度：低（进行 0 · 临期 0）。紧迫分 = 进行中 + 临期（含逾期），0–1 低 / 2–3 中 / ≥4 高。点击查看全部任务">
+        <span class="tab-num" id="urgencyNum" data-kpi="urgency">低</span>
+        <span class="tab-label">紧迫度</span>
+      </button>
     </div>
   </header>
 
@@ -602,12 +558,10 @@
   var focusLead = 3;
   /* 紧迫度：紧迫分 = 进行中任务数 + 临期任务数（含逾期）；0–1 低 / 2–3 中 / ≥4 高 */
   var URGENCY = {
-    low:    { label: '低', spin: '6s',   pulse: '2.4s' },
-    medium: { label: '中', spin: '3s',   pulse: '1.4s' },
-    high:   { label: '高', spin: '1.2s', pulse: '.7s' }
+    low:    { label: '低' },
+    medium: { label: '中' },
+    high:   { label: '高' }
   };
-  var MOTION_KEY = 'todo_urgency_motion_v1';
-  var motionPaused = false;
   var draftTimer = null;
   var EXPANDED = {};
   var FOLDED = { focus: false, doing: false, todo: false, done: true, hold: true };
@@ -619,7 +573,7 @@
 
   var taskInput, prioInput, catInput, planInput, dueInput, addBtn, addForm, searchInput, hideDone, bannerEl, boardEl, loadingEl, chipsEl;
   var descToggle, rtWrap, descEditor, addBar, descMask, editEditor, editBar, descTaskLabel;
-  var viewTabs, focusCountEl, coreTabs, urgencyTab, urgencyPause, urgencyDetail, dueModeBtn, focusLeadBtn, toastEl, toastText, toastBtn, toastClose;
+  var viewTabs, focusCountEl, coreTabs, urgencyTab, dueModeBtn, focusLeadBtn, toastEl, toastText, toastBtn, toastClose;
   var trashBtn, trashPanel, trashList, trashCount, trashSummary, trashScope;
   var purgePending = null;
   var planMask, planTaskLabel, planQuick, planPick;
@@ -739,7 +693,6 @@
       for (var li = 0; li < LEAD_OPTIONS.length; li++) {
         if (LEAD_OPTIONS[li] === lead) { focusLead = lead; }
       }
-      motionPaused = window.localStorage.getItem(MOTION_KEY) === 'paused';
       var per = window.localStorage.getItem(PER_MODE_KEY);
       if (per) {
         var obj = JSON.parse(per);
@@ -830,16 +783,7 @@
         + '）。紧迫分 = 进行中 + 临期（含逾期）：0–1 低 / 2–3 中 / ≥4 高。点击查看全部任务';
     }
     setKpi('urgency', u.label);
-    if (urgencyDetail) { urgencyDetail.textContent = '进行 ' + doing + ' · 临期 ' + soon; }
     return level;
-  }
-  function syncMotion() {
-    if (urgencyTab) { urgencyTab.classList.toggle('paused', motionPaused); }
-    if (urgencyPause) {
-      urgencyPause.textContent = motionPaused ? '▶' : '⏸';
-      urgencyPause.setAttribute('aria-label', motionPaused ? '播放紧迫度动画' : '暂停紧迫度动画');
-      urgencyPause.title = motionPaused ? '播放动画' : '暂停动画';
-    }
   }
   function cycleFocusLead() {
     var i = 0, j;
@@ -1165,8 +1109,6 @@
     viewTabs = document.getElementById('viewTabs');
     coreTabs = document.getElementById('coreTabs');
     urgencyTab = document.getElementById('urgencyTab');
-    urgencyPause = document.getElementById('urgencyPause');
-    urgencyDetail = document.getElementById('urgencyDetail');
     focusCountEl = document.getElementById('focusCount');
     dueModeBtn = document.getElementById('dueModeBtn');
     focusLeadBtn = document.getElementById('focusLeadBtn');
@@ -2027,14 +1969,6 @@
       render();
     });
     dueModeBtn.addEventListener('click', toggleDueMode);
-    if (urgencyPause) {
-      urgencyPause.addEventListener('click', function () {
-        motionPaused = !motionPaused;
-        try { window.localStorage.setItem(MOTION_KEY, motionPaused ? 'paused' : 'on'); } catch (e) { /* 静默降级 */ }
-        syncMotion();
-      });
-    }
-    syncMotion();
     if (trashBtn) {
       trashBtn.addEventListener('click', function () {
         view.trash = !view.trash;
