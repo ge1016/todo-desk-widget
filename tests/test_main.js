@@ -309,11 +309,72 @@ const probe = `(async function () {
 
     /* 11. 回收区：切换视图、恢复、彻底删除（二次确认） */
     var delCallsBeforePurge = calls('delete').length;
+    /* 反向隔离：看板处于分类+今天筛选态时进回收区，必须被清空，不污染回收区 */
+    click('#catChips [data-cat="AI"]');
+    click('#viewTabs [data-view="today"]');
+    await sleep(60);
+    ck('pre_trash_board_filtered', $('#catChips [data-cat="AI"]').classList.contains('on') && $('#viewTabs [data-view="today"]').classList.contains('on'));
     click('#trashBtn');
+    ck('enter_trash_clears_board_filter', $('#trashCount').textContent === '2' && document.querySelectorAll('#trashList .card').length === 2);
+    ck('enter_trash_cat_reset', (function () { var a = $('#catChips [data-cat=""]'); return !!a && a.classList.contains('on'); })());
+    ck('enter_trash_today_reset', $('#viewTabs [data-view="all"]').classList.contains('on'));
+    /* 回到干净回收区继续后续测试 */
     ck('trash_panel_visible', !$('#trashPanel').hidden);
     ck('trash_board_hidden', $('#board').hidden);
     ck('trash_button_active', $('#trashBtn').classList.contains('on'));
     ck('trash_lists_2', document.querySelectorAll('#trashList .card').length === 2);
+
+    /* 11a. 交互矩阵：回收区是独立视图，分类 chip 基于已删除任务，筛选只作用于回收区 */
+    ck('trash_body_class_on', document.body.classList.contains('in-trash'));
+    ck('trash_hides_board_only_controls', (function () {
+      var m = $('#dueModeBtn'), s = $('.switch');
+      return !!m && !!s && getComputedStyle(m).display === 'none' && getComputedStyle(s).display === 'none';
+    })());
+    function trashChips() { return document.querySelectorAll('#catChips [data-cat]').length; }
+    function trashCards() { return document.querySelectorAll('#trashList .card').length; }
+    /* 回收区 chip 必须含已删除任务的分类（AI / 企微），否则无法按 tag 筛 */
+    ck('trash_chips_include_deleted_cats', !!$('#catChips [data-cat="AI"]') && !!$('#catChips [data-cat="企微"]'));
+    ck('trash_chips_have_all', !!$('#catChips [data-cat=""]'));
+    ck('trash_scoped_hint_visible', !!$('#trashScope') && $('#trashScope').textContent.indexOf('回收区') >= 0);
+    /* 点分类：只显示该类，看板不受影响 */
+    click('#catChips [data-cat="AI"]');
+    ck('trash_filter_by_cat', trashCards() === 1 && !!$('#trashList .card[data-id="r9"]'));
+    ck('trash_filter_excludes_other_cat', !$('#trashList .card[data-id="r10"]'));
+    ck('trash_cat_chip_highlighted', $('#catChips [data-cat="AI"]').classList.contains('on'));
+    ck('trash_scope_shows_filter', $('#trashScope').textContent.indexOf('AI') >= 0);
+    ck('trash_filter_keeps_body_class', document.body.classList.contains('in-trash'));
+    /* 分类 + 搜索组合 */
+    $('#searchInput').value = '测试任务I';
+    $('#searchInput').dispatchEvent(new Event('input', { bubbles: true }));
+    await sleep(60);
+    ck('trash_cat_plus_search', trashCards() === 1 && !!$('#trashList .card[data-id="r9"]'));
+    $('#searchInput').value = '不存在zzz';
+    $('#searchInput').dispatchEvent(new Event('input', { bubbles: true }));
+    await sleep(60);
+    ck('trash_filter_empty_actionable', (function () {
+      var e = $('#trashList .empty');
+      return !!e && e.textContent.indexOf('不限分类') >= 0;
+    })());
+    /* 清空搜索 + 点不限分类：恢复回收区全部 */
+    $('#searchInput').value = '';
+    $('#searchInput').dispatchEvent(new Event('input', { bubbles: true }));
+    await sleep(60);
+    click('#catChips [data-cat=""]');
+    ck('trash_all_chip_restores', trashCards() === 2);
+    ck('trash_search_cleared', $('#searchInput').value === '');
+    /* 状态隔离：从回收区退出后看板分类/搜索都干净 */
+    click('#viewTabs [data-view="all"]');
+    ck('exit_trash_via_viewtab', !document.body.classList.contains('in-trash'));
+    ck('exit_trash_board_restored', !$('#board').hidden && !!$('#trashPanel').hidden);
+    ck('exit_trash_no_cat_active', (function () {
+      var all = $('#catChips [data-cat=""]');
+      return !!all && all.classList.contains('on');
+    })());
+    ck('exit_trash_full_board', document.querySelectorAll('.card').length >= 9);
+    /* 再看分类 chip 已回到「看板分类」集合，不再含仅回收区才有的污染 */
+    click('#trashBtn');
+    ck('reenter_trash_clean', trashCards() === 2 && !!$('#catChips [data-cat="AI"]'));
+
     ck('trash_card_has_restore', !!$('#trashList .card[data-id="r9"] [data-act="restore"]'));
     ck('trash_card_has_purge', !!$('#trashList .card[data-id="r10"] [data-act="purge"]'));
     ck('trash_card_shows_delete_time', !!$('#trashList .card[data-id="r9"] .badge') && $('#trashList .card[data-id="r9"] .badge').textContent.indexOf('删除于') === 0);

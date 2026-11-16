@@ -232,6 +232,9 @@
   .trash-btn.on { background: var(--brand); border-color: transparent; color: #fff; }
   .trash-btn .n { font-variant-numeric: tabular-nums; opacity: .8; }
   .trash-panel { margin: 0 0 14px; }
+  /* 回收区是独立视图：隐藏看板专属控件，避免「点了没反应」的困惑 */
+  body.in-trash .mode-btn:not(.trash-btn), body.in-trash .switch { display: none; }
+  .trash-scope { font-size: 11px; color: var(--brand); background: rgba(47, 107, 255, .09); border: 1px solid rgba(47, 107, 255, .22); border-radius: 999px; padding: 2px 9px; }
   .trash-head { display: flex; align-items: center; gap: 9px; flex-wrap: wrap; margin: 0 0 10px; font-size: 12px; color: var(--ink3); }
   .trash-head b { font-size: 14px; font-weight: 640; color: var(--ink); }
   .trash-list { display: flex; flex-direction: column; gap: 9px; }
@@ -458,7 +461,7 @@
   </section>
 
   <section class="trash-panel" id="trashPanel" hidden>
-    <div class="trash-head"><b>回收区</b><span id="trashSummary">删除的任务会先放这里，可恢复或彻底删除</span></div>
+    <div class="trash-head"><b>回收区</b><span class="trash-scope" id="trashScope">上方搜索 / 分类只筛选回收区</span><span id="trashSummary">删除的任务会先放这里，可恢复或彻底删除</span></div>
     <div class="trash-list" id="trashList"></div>
   </section>
 
@@ -617,7 +620,7 @@
   var taskInput, prioInput, catInput, planInput, dueInput, addBtn, addForm, searchInput, hideDone, bannerEl, boardEl, loadingEl, chipsEl;
   var descToggle, rtWrap, descEditor, addBar, descMask, editEditor, editBar, descTaskLabel;
   var viewTabs, focusCountEl, coreTabs, urgencyTab, urgencyPause, urgencyDetail, dueModeBtn, focusLeadBtn, toastEl, toastText, toastBtn, toastClose;
-  var trashBtn, trashPanel, trashList, trashCount, trashSummary;
+  var trashBtn, trashPanel, trashList, trashCount, trashSummary, trashScope;
   var purgePending = null;
   var planMask, planTaskLabel, planQuick, planPick;
   var fabAdd, addMask, sourceTag, sourceName, sourceClear;
@@ -1172,6 +1175,7 @@
     trashList = document.getElementById('trashList');
     trashCount = document.getElementById('trashCount');
     trashSummary = document.getElementById('trashSummary');
+    trashScope = document.getElementById('trashScope');
     toastEl = document.getElementById('toast');
     toastText = document.getElementById('toastText');
     toastBtn = document.getElementById('toastBtn');
@@ -1350,8 +1354,12 @@
 
     for (i = 0; i < ROWS.length; i++) {
       r = ROWS[i];
-      /* 软删除记录只进回收区，不参与 KPI、分组与分类筛选 */
-      if (isTrashed(r)) { trash.push(r); continue; }
+      /* 软删除记录只进回收区，不参与 KPI 与分组；但它的分类要进入回收区的 chip 列表 */
+      if (isTrashed(r)) {
+        trash.push(r);
+        if (view.trash && r[F.cat]) { cats[String(r[F.cat])] = true; }
+        continue;
+      }
       st = statusText(r[F.status]) || '待办';
       if (st === '已完成') {
         if (isoDate(r[F.done]) === today) { todayDone++; }
@@ -1681,6 +1689,19 @@
     var p = function (n) { return n < 10 ? '0' + n : String(n); };
     return '删除于 ' + p(d.getMonth() + 1) + '-' + p(d.getDate()) + ' ' + p(d.getHours()) + ':' + p(d.getMinutes());
   }
+  /* 进入 / 退出回收区时清空所有看板筛选态，避免两套视图串台 */
+  function clearBoardFilters() {
+    view.cat = '';
+    view.q = '';
+    view.focus = '';
+    view.todayOnly = false;
+    view.hideDone = false;
+    if (searchInput) { searchInput.value = ''; }
+    if (hideDone) { hideDone.checked = false; }
+    saveViewPref();
+    syncViewTabs();
+    syncCoreTabs();
+  }
   function syncTrash(n) {
     if (trashBtn) {
       if (view.trash) { trashBtn.classList.add('on'); } else { trashBtn.classList.remove('on'); }
@@ -1689,6 +1710,7 @@
     if (trashCount) { trashCount.textContent = String(n); }
     if (trashPanel) { trashPanel.hidden = !view.trash; }
     if (boardEl) { boardEl.hidden = !!view.trash; }
+    if (document.body) { document.body.classList.toggle('in-trash', !!view.trash); }
     if (trashSummary) {
       trashSummary.textContent = n
         ? (n + ' 条已删除 · 可恢复，或彻底删除（彻底删除后无法找回）')
@@ -1717,9 +1739,12 @@
     while (trashList.firstChild) { trashList.removeChild(trashList.firstChild); }
     if (!view.trash) { return; }
     var q = String(view.q || '').toLowerCase();
+    var cat = String(view.cat || '');
     var rows = [];
     for (var i = 0; i < list.length; i++) {
       var r = list[i];
+      /* 回收区独立应用分类筛选：与看板用同一 view.cat，但作用域只限已删除记录 */
+      if (cat && String(r[F.cat] || '') !== cat) { continue; }
       if (q) {
         var hay = (String(r[F.task] || '') + ' ' + String(r[F.cat] || '') + ' ' + rtText(r[F.detail])).toLowerCase();
         if (hay.indexOf(q) < 0) { continue; }
@@ -1732,8 +1757,13 @@
       if (ta > tb) { return -1; }
       return 0;
     });
+    if (trashScope) {
+      trashScope.textContent = (cat || q)
+        ? ('正在筛选：' + (cat ? '分类「' + shortName(cat) + '」' : '') + (cat && q ? ' + ' : '') + (q ? '关键词「' + shortName(q) + '」' : ''))
+        : '上方搜索 / 分类只筛选回收区';
+    }
     if (!rows.length) {
-      trashList.appendChild(el('div', 'empty', q ? '回收区里没有匹配的任务' : '回收区是空的'));
+      trashList.appendChild(el('div', 'empty', (cat || q) ? '回收区里没有匹配的任务 · 点「不限分类」或清空搜索返回' : '回收区是空的'));
       return;
     }
     for (var k = 0; k < rows.length; k++) { trashList.appendChild(buildTrashCard(rows[k])); }
@@ -1816,6 +1846,7 @@
       clearDraft();
       addMask.hidden = true;
       restoreFocus();
+      if (view.trash) { clearBoardFilters(); }
       view.trash = false;
       hideToast();
       return refresh();
@@ -1976,6 +2007,8 @@
     viewTabs.addEventListener('click', function (e) {
       var t = e.target && e.target.closest ? e.target.closest('[data-view]') : null;
       if (!t) { return; }
+      var wasTrash = view.trash;
+      if (wasTrash) { clearBoardFilters(); }
       view.todayOnly = t.getAttribute('data-view') === 'today';
       view.trash = false;
       saveViewPref();
@@ -1986,6 +2019,7 @@
       var t = e.target && e.target.closest ? e.target.closest('[data-focus]') : null;
       if (!t) { return; }
       var f = t.getAttribute('data-focus');
+      if (view.trash) { clearBoardFilters(); }
       view.trash = false;
       if (f === 'urgency') { view.focus = ''; view.todayOnly = false; saveViewPref(); }
       else { view.focus = (view.focus === f) ? '' : f; }
@@ -2004,6 +2038,7 @@
     if (trashBtn) {
       trashBtn.addEventListener('click', function () {
         view.trash = !view.trash;
+        clearBoardFilters();   /* 回收区与看板互不污染，进出都从干净状态开始 */
         render();
       });
     }
